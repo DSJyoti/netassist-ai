@@ -1,11 +1,11 @@
-# NetAssist AI — Testing Strategy
+# TESTING_STRATEGY.md
 
-**Document:** Testing Strategy  
-**Project:** NetAssist AI  
-**Version:** 1.0  
-**Status:** Design Phase  
+**Project:** NetAssist AI — Intelligent Network Log Troubleshooting Assistant
+**Document Version:** 1.1
+**Status:** Testing Design
 **Testing Framework:** Pytest  
 **API Testing:** FastAPI TestClient / HTTPX
+**Last Updated:** October 15, 2026
 
 ---
 
@@ -13,39 +13,43 @@
 
 This document defines the testing strategy for NetAssist AI.
 
-Testing will verify that the application safely parses uploaded network logs, detects supported events, preserves evidence, generates appropriate recommendations, and returns consistent API responses.
+Testing will verify that the application safely validates uploaded network logs, parses supported input, detects documented events, preserves source evidence, generates appropriate recommendations, and returns responses consistent with the canonical API contract.
 
-Testing is required throughout development rather than only before release.
+Testing is required throughout development, not only before release.
 
-The initial MVP must be testable without a paid API, an installed AI model, or access to production network devices.
+The initial MVP must be testable without paid APIs, an installed AI model, internet access during core test execution, or access to production network devices.
 
 ## 2. Testing Objectives
 
 The test suite must verify that:
 
-1. Supported log files are processed correctly.
-2. Detection rules identify expected events.
+1. Supported log files are processed according to documented rules.
+2. Implemented detection rules identify expected events.
 3. Unrelated log lines do not produce unsupported detections.
-4. Every detected event includes traceable evidence.
-5. Severity values match the documented rules.
-6. Event correlations do not automatically imply causality.
+4. Every detected event contains traceable source evidence.
+5. Event types and severity values match the configured rules.
+6. Correlations do not automatically imply causality.
 7. Recommendations remain safe and advisory.
-8. Invalid uploads are rejected appropriately.
-9. API responses follow the documented schemas.
-10. The application works when AI is disabled.
+8. Invalid and oversized uploads are handled appropriately.
+9. API responses follow the canonical schemas.
+10. Core functionality works when AI is disabled.
 11. Sensitive information is handled carefully.
-12. Changes do not silently break previously working features.
+12. Previously fixed defects remain fixed.
+13. Processing limitations and unrecognized lines are reported consistently.
+14. Results are deterministic for identical input and ruleset versions, except for explicitly nondeterministic metadata such as generated identifiers or processing duration.
 
 ## 3. Testing Principles
 
-- **Repeatable:** The same input and ruleset should produce the same deterministic results.
-- **Isolated:** Each test should verify a specific behavior.
-- **Independent:** Tests should not require internet access or production systems.
-- **Safe:** Use synthetic logs rather than real customer or production logs.
-- **Evidence-based:** Expected detections must specify the source lines supporting them.
-- **Fast:** Unit tests should run quickly during development.
-- **Maintainable:** Detection tests should be easy to extend as rules are added.
-- **AI-independent:** Core tests must not require an AI model.
+- **Repeatable:** Identical input and ruleset versions produce consistent detection decisions.
+- **Isolated:** Unit tests verify specific behaviors.
+- **Independent:** Core tests do not require internet access or production systems.
+- **Safe:** Synthetic logs are used instead of real customer or production logs.
+- **Evidence-based:** Expected detections identify the source lines that support them.
+- **Fast:** Unit tests remain suitable for frequent execution.
+- **Maintainable:** Tests are organized around the application's components.
+- **AI-independent:** Core tests do not require a local LLM, embedding model or paid API.
+- **Contract-driven:** Tests use the canonical models and API specification.
+- **Privacy-aware:** Uploaded content must not be unnecessarily retained or exposed.
 
 ## 4. Testing Levels
 
@@ -53,28 +57,26 @@ The test suite must verify that:
 |---|---|---|
 | Unit tests | Individual functions and rules | Detect an interface-down event |
 | Component tests | Connected backend components | Parser output enters the detection engine |
-| API tests | HTTP endpoints and responses | Upload a valid log file |
-| Integration tests | End-to-end backend workflow | Upload, parse, detect, and return events |
-| Security tests | Unsafe inputs and privacy boundaries | Reject an oversized file |
+| API tests | HTTP endpoints and response contracts | Upload a valid log file |
+| Integration tests | Complete backend workflow | Validate, parse, detect and return events |
+| Security tests | Unsafe input and privacy boundaries | Reject an oversized file |
 | Regression tests | Previously fixed issues remain fixed | A corrected BGP rule still works |
-| Acceptance tests | MVP requirements are satisfied | Complete analysis without AI |
+| Acceptance tests | MVP requirements are satisfied | Analyze a supported log without AI |
 
 ## 5. Test Tools
 
-The initial test stack will use:
+The initial testing stack will use:
 
-- **pytest:** Test execution and assertions.
-- **FastAPI TestClient:** API endpoint testing.
-- **HTTPX:** HTTP support used by the testing stack.
-- **Python standard library:** Temporary files, text fixtures, and basic utilities.
+- **pytest:** Test execution, fixtures and assertions.
+- **FastAPI TestClient:** API endpoint tests.
+- **HTTPX:** HTTP support for the FastAPI testing stack.
+- **Python standard library:** Temporary files, text fixtures and basic utilities.
 
 No paid testing platform is required.
 
-Dependencies should be installed in the project's virtual environment.
+Dependencies must be installed in the project's virtual environment and recorded in the project dependency configuration.
 
-## 6. Test Directory Structure
-
-Proposed structure:
+## 6. Proposed Test Directory Structure
 
 ```text
 tests/
@@ -89,6 +91,7 @@ tests/
     test_analysis_summary.py
   api/
     test_health.py
+    test_ready.py
     test_info.py
     test_analyze_endpoint.py
   integration/
@@ -102,22 +105,25 @@ tests/
 sample_logs/
   interface_down.log
   interface_up.log
-  crc_errors.log
   bgp_neighbor_down.log
-  link_flap.log
+  bgp_neighbor_up.log
+  device_error.log
+  authentication_failure.log
   clean_log.log
   malformed.log
 ```
 
-This is the target structure. Files will be created as the corresponding components are implemented.
+This is the proposed structure, not a statement that these files already exist. Files will be created as their associated components are implemented.
+
+Additional fixtures may be introduced for future detection rules, but they must not be treated as MVP acceptance requirements.
 
 ## 7. Synthetic Test Data
 
 All initial test fixtures must be synthetic.
 
-Do not use real production logs containing customer data, credentials, or private infrastructure details.
+Do not use real production logs containing customer information, credentials, private infrastructure details or other sensitive data.
 
-Each fixture should have a documented purpose and expected result.
+Each fixture must have a documented purpose and an expected result.
 
 ### Example: `interface_down.log`
 
@@ -129,33 +135,36 @@ Each fixture should have a documented purpose and expected result.
 
 Expected behavior:
 
-- The parser processes the lines it supports.
-- The detection engine identifies the interface-down event.
-- The event references source line 2.
-- The event severity matches the documented rule.
-- The unrelated lines do not produce an interface-down event.
+- The parser processes the supported records.
+- The detection engine identifies the interface-down event if the implemented pattern supports this format.
+- The event references original source line 2.
+- The event uses rule ID `IFACE_DOWN_001`.
+- The event severity matches the documented rule configuration.
+- The unrelated lines do not produce interface-down events.
 - The system does not claim to know the physical root cause from this evidence alone.
 
-The exact expected severity and parser behavior must match the finalized rule specification and implementation.
+The expected result must be validated against the implemented parser, rule patterns and canonical data models.
 
 ## 8. File Validation Tests
 
-Test the following cases:
+Test the following scenarios:
 
 | Scenario | Expected result |
 |---|---|
 | Valid `.log` file | Accepted |
 | Valid `.txt` file | Accepted |
-| Unsupported extension | Rejected |
-| Empty file | Controlled error |
-| File larger than configured limit | Rejected |
-| Missing upload field | Validation error |
-| Invalid text encoding | Controlled error or documented partial result |
-| Filename contains path traversal characters | No path traversal |
-| Very long line | Handled within resource limits |
-| Binary content disguised as text | Rejected or safely handled |
+| Unsupported extension | Rejected with a controlled error |
+| Empty file | Handled according to documented validation behavior |
+| File exceeding the configured size limit | Rejected |
+| Missing upload field | Controlled validation error |
+| Invalid text encoding | Handled according to documented error or partial-analysis policy |
+| Filename containing path traversal characters | Must not enable path traversal |
+| Very long line | Handled within documented resource limits |
+| Binary content disguised as text | Rejected or safely handled according to validation policy |
 
-Tests must verify that rejected uploads do not trigger the detection pipeline unnecessarily.
+Tests must verify that rejected uploads do not unnecessarily trigger parsing or detection.
+
+The upload limit must remain aligned with `API_SPECIFICATION.md` and `TECH_STACK.md`: **5 MiB maximum** for the initial MVP.
 
 ## 9. Parser Tests
 
@@ -163,7 +172,7 @@ The parser must be tested against:
 
 - Supported timestamp formats.
 - Missing timestamps.
-- Different log levels.
+- Supported log levels.
 - Device names and interface identifiers.
 - Unexpected whitespace.
 - Empty lines.
@@ -171,77 +180,93 @@ The parser must be tested against:
 - Unrecognized message formats.
 - Very long lines.
 - Unicode characters.
-- Multiple records with the same timestamp.
+- Multiple records with identical timestamps.
+- Inputs containing text that resembles commands or instructions.
 
 Expected results must be explicit for each fixture.
 
-The parser must not invent missing timestamps, device names, or interface names.
+The parser must not invent missing timestamps, device names, interface names or resource identifiers.
+
+The original one-based source line numbers must remain correct even when some lines are empty, malformed or unrecognized.
 
 ## 10. Detection Rule Tests
 
-Each implemented rule must have:
+Each implemented MVP rule must have:
 
 1. At least one positive test.
 2. At least one negative test.
-3. An expected severity.
-4. An expected rule ID.
+3. An expected rule ID and event type.
+4. An expected severity.
 5. Expected evidence line references.
-6. A safe recommendation check.
-7. Edge cases appropriate to the rule.
+6. A structured recommendation check.
+7. Missing-field and timestamp edge cases.
+8. Relevant false-positive tests.
+9. Duplicate-handling tests.
+10. Deterministic behavior tests.
 
-### Initial detection matrix
+### Initial MVP detection matrix
 
-| Rule | Positive test | Negative or edge test |
+| Rule ID | Positive test | Negative or edge test |
 |---|---|---|
-| `INTERFACE_DOWN` | Interface changes to down | Similar text unrelated to interface state |
-| `INTERFACE_UP` | Interface changes to up | Interface remains down |
-| `LINK_FLAP` | Repeated state changes within a configured window | A single state change |
-| `CRC_ERRORS` | CRC error counter increases | No CRC-related evidence |
-| `BGP_NEIGHBOR_DOWN` | Neighbor-down message | Neighbor is established |
-| `BGP_NEIGHBOR_UP` | Neighbor-established message | No state transition |
-| `ARP_FAILURE` | Recognized ARP failure message | Ordinary ARP activity |
-| `DUPLICATE_IP` | Explicit duplicate-IP evidence | A single IP address mention |
-| `VLAN_MISMATCH` | Explicit mismatch evidence | VLAN mentioned without mismatch |
-| `MAC_FLAPPING` | Recognized MAC movement pattern | Normal MAC learning |
+| `IFACE_DOWN_001` | Explicit interface-down transition | Unrelated mention of an interface |
+| `IFACE_UP_001` | Explicit interface-up transition | Interface remains down |
+| `BGP_NEIGHBOR_DOWN_001` | Explicit BGP neighbor-down message | General mention of BGP without a down transition |
+| `BGP_NEIGHBOR_UP_001` | Explicit BGP neighbor-up or established message | No supported state transition |
+| `DEVICE_ERROR_001` | Documented device-error pattern | Generic use of the word `error` |
+| `AUTH_FAILURE_001` | Supported authentication-failure message | Generic mention of login or authentication |
 
-Rules must only be tested as implemented. A planned rule must not be counted as passing before it exists.
+Only these six rules belong to the initial MVP detection contract.
+
+Additional rules such as link flap, CRC errors, ARP failures, duplicate IP, VLAN mismatch and MAC flapping are future candidates. They require separate scope approval, documentation, implementation and tests before becoming active capabilities.
+
+A planned rule must not be counted as passing before its implementation and tests exist.
 
 ## 11. Severity Tests
 
-Severity is determined by the documented deterministic rules.
+Severity is assigned through the documented deterministic rule configuration.
 
 Tests must verify that:
 
-- Each rule produces its configured severity.
-- AI output cannot change severity.
-- Unknown conditions do not automatically become critical.
-- Severity does not depend on arbitrary changes in message wording unless the rule explicitly defines that behavior.
-- Any severity change is accompanied by updated tests and documentation.
+- Each implemented rule produces its configured severity.
+- `INFO` events are included in event and severity counts.
+- Unknown conditions do not automatically become `CRITICAL`.
+- Arbitrary wording changes do not alter severity unless the documented rule explicitly defines that behavior.
+- AI output, when introduced, cannot change deterministic severity.
+- Severity changes are accompanied by updated tests and documentation.
+
+The canonical severity values are `INFO`, `LOW`, `MEDIUM`, `HIGH` and `CRITICAL`.
 
 ## 12. Evidence Tests
 
 For every detected event, verify that:
 
-- At least one evidence item exists.
-- The line number is valid.
-- The evidence originates from the input.
-- The event's rule ID matches the rule that detected it.
-- The original event evidence is not replaced by AI-generated text.
-- Sensitive values are not unnecessarily reproduced in user-facing output.
+- At least one valid evidence item exists.
+- Source line numbers are valid and one-based.
+- Evidence originates from the uploaded input.
+- The evidence text preserves the source line or a documented excerpt.
+- The event's rule ID matches the rule that generated it.
+- Original evidence is not replaced by AI-generated text.
+- Missing timestamps or identifiers remain unknown.
+- Sensitive values are not unnecessarily reproduced in user-facing descriptions or application logs.
 
-If a rule requires multiple lines, the test should verify all required evidence references.
+If a rule requires multiple lines, tests must verify all required evidence references.
 
 ## 13. Correlation Tests
 
-Correlation tests must verify:
+Correlation tests must verify that:
 
-- Events are linked only when documented criteria are satisfied.
-- Related event IDs exist in the same analysis.
-- Temporal windows are applied consistently.
-- Missing timestamps do not cause fabricated ordering.
-- An interface-down event followed by a BGP-down event is not automatically labeled a confirmed causal relationship.
-- Correlation confidence is assigned according to documented logic.
-- Repeated events do not create duplicate or contradictory correlations without justification.
+- Correlations are created only when documented criteria are satisfied.
+- At least two distinct valid events are referenced.
+- Every related event ID exists in the current analysis.
+- Correlation criteria are applied consistently.
+- Missing timestamps do not cause fabricated event ordering.
+- Missing resource identifiers do not get invented.
+- Interface-down followed by BGP-down is not automatically treated as a confirmed causal relationship.
+- Correlation confidence follows the documented implementation.
+- Duplicate or contradictory correlations are handled consistently.
+- `is_confirmed_cause` remains `false` for the initial MVP's simple temporal or resource-based correlations.
+
+Correlation must not change the severity, rule ID or source evidence of the underlying events.
 
 ## 14. Recommendation Tests
 
@@ -249,39 +274,44 @@ Recommendations must be:
 
 - Relevant to the detected event.
 - Consistent with the documented rule.
+- Structured according to `DATA_MODELS.md`.
 - Advisory rather than automatically executable.
-- Focused on read-only checks and safe inspection in the MVP.
+- Focused on inspection, log review and safe read-only checks.
 - Clear about when administrator authorization may be required.
-- Free from invented device states or unsupported root-cause claims.
+- Free from invented device states and unsupported root-cause claims.
 
-Tests must confirm that the application does not execute recommendations.
+Tests must verify that the application does not execute commands or change network configuration.
 
 ## 15. API Tests
 
-Test the following endpoints and behavior:
+Test the four MVP endpoints:
 
 - `GET /health`
 - `GET /ready`
 - `GET /api/v1/info`
 - `POST /api/v1/analyze`
 
-Additional result retrieval and export endpoints will be tested only if implemented.
+Additional result retrieval, export or history endpoints are out of scope unless separately approved and implemented.
 
-For the analyze endpoint, verify:
+For the analyze endpoint, verify that:
 
-- A valid upload returns the expected success status.
-- The response follows the `AnalysisResult` schema.
-- Event counts match the returned event list.
-- Severity counts add up to the total event count.
+- A valid upload returns the documented success status.
+- The response conforms to the canonical `AnalysisResult` schema.
+- Event and severity counts match the returned events.
 - Evidence line numbers are preserved.
 - Unsupported file types return controlled errors.
 - Oversized uploads return the documented error.
-- Unexpected failures do not reveal stack traces or secrets.
-- A valid file with no recognized events returns a valid empty analysis result.
+- Unexpected failures do not reveal stack traces, secrets or sensitive implementation details.
+- A valid file with no recognized events returns a valid analysis result with an empty event list.
+- Processing warnings use the canonical `AnalysisWarning` structure.
+- Analysis status follows the documented completion criteria.
+- The response's metadata matches the actual processing configuration.
+
+Tests must not assume permanent result storage or history retrieval. The initial MVP does not require a database.
 
 ## 16. Integration Tests
 
-Integration tests must exercise the complete deterministic workflow:
+Integration tests must exercise the deterministic analysis workflow:
 
 ```text
 Synthetic Log
@@ -311,11 +341,13 @@ AnalysisResult
 API Response
 ```
 
-At least one test must verify that a known fixture produces the expected final event list and summary.
+At least one integration test must verify that a known fixture produces the expected final event list, evidence references and summary.
 
-Integration tests should use the real application components rather than mocking every stage.
+Integration tests should use real application components wherever practical rather than mocking every stage.
 
-## 17. Security Tests
+The integration suite must also cover a valid file that produces zero detected events and a file that triggers a documented processing limitation.
+
+## 17. Security and Privacy Tests
 
 Security tests must include:
 
@@ -323,61 +355,69 @@ Security tests must include:
 - Path traversal attempts in filenames.
 - Malformed text and unexpected characters.
 - HTML or script-like content in log lines.
-- Prompt-injection-like text in log content.
-- Recognizable synthetic passwords or tokens.
+- Prompt-injection-like text embedded in logs.
+- Synthetic passwords or tokens.
 - Excessively long lines and resource-limit cases.
-- Invalid AI output when the AI layer is implemented.
-- Verification that uploaded content is not executed.
-- Verification that analysis does not initiate outbound AI requests in local-only mode.
+- Invalid AI output when the optional AI layer is introduced.
+- Verification that uploaded content is never executed.
+- Verification that the application does not initiate outbound AI requests in local-only mode.
+- Verification that temporary files, if used, are cleaned up after processing.
+- Verification that uploaded logs and results are not permanently retained by default.
 
-These tests verify specific controls; they do not establish that the application is immune to every security threat.
+These tests verify specific controls. They do not establish immunity to every security threat.
 
-## 18. AI Tests — Future Phase
+## 18. Optional AI/RAG Tests — Future Phase
 
-The deterministic MVP test suite must not require AI.
+The deterministic MVP test suite must not require AI, embeddings, a vector database or a local model.
 
-When the optional AI layer is introduced, add tests for:
+When the optional local AI/RAG layer is introduced, add tests for:
 
 - AI disabled.
-- Model unavailable.
-- Model timeout.
+- Local model unavailable.
+- Model timeout or failure.
 - Invalid structured output.
 - References to nonexistent event IDs.
 - Unsupported root-cause claims.
-- Prompt injection embedded in logs.
+- Prompt injection embedded in logs or retrieved documents.
 - Severity changes proposed by AI.
 - Excessive input length.
+- Missing or invalid evidence citations.
+- Retrieval returning irrelevant documents.
 - Deterministic fallback after AI failure.
 
-Evaluation should measure evidence-reference accuracy, unsupported-claim frequency, latency, and fallback reliability.
+Evaluation should measure evidence-reference accuracy, unsupported-claim frequency, response latency and fallback reliability.
 
-AI quality must be evaluated separately from deterministic detection accuracy.
+AI explanation quality must be evaluated separately from deterministic detection accuracy.
 
 ## 19. Regression Testing
 
-Every fixed bug should include a regression test.
+Every fixed defect should have a regression test where practical.
 
-Examples:
+Examples include:
 
 - A false-positive detection.
 - Incorrect severity assignment.
-- Wrong source line number.
+- Incorrect source line number.
 - Inconsistent event counts.
 - A malformed file crashing the parser.
 - Duplicate correlations.
 - Sensitive information appearing in a report.
+- An unsupported file bypassing validation.
+- AI output changing deterministic detection results.
 
-The regression suite should run whenever code affecting the relevant behavior changes.
+The regression suite should run whenever relevant application behavior changes.
 
 ## 20. Test Commands
 
-After the project environment and dependencies are configured, the expected command will be:
+After the project environment, dependencies and corresponding test files are configured, use:
+
+Run the complete test suite:
 
 ```bash
 python -m pytest
 ```
 
-Run a specific test file with:
+Run a specific test file:
 
 ```bash
 python -m pytest tests/unit/test_log_parser.py
@@ -389,18 +429,20 @@ Run tests with more detailed output:
 python -m pytest -v
 ```
 
-These commands should be used only after the corresponding files and test dependencies exist.
+These are planned commands. They do not imply that the test files or application code already exist.
 
 ## 21. Coverage and Quality Gates
 
 Initial quality goals:
 
-- All implemented detection rules have positive and negative tests.
-- All API endpoints in the MVP have tests.
-- Core models and validation have unit tests.
+- All six implemented MVP detection rules have positive and negative tests.
+- Every MVP API endpoint has tests.
+- Core models and file validation have unit tests.
 - Critical security boundaries have explicit tests.
 - Every fixed defect has a regression test where practical.
-- The core test suite passes without an AI model or paid service.
+- The core test suite passes without a local AI model or paid service.
+- Test expectations match the current canonical models and documented ruleset.
+- No candidate future rule is represented as an implemented feature.
 
 A numerical code-coverage target may be added once the initial codebase exists. Coverage percentage alone is not proof of correctness.
 
@@ -412,14 +454,30 @@ A feature is complete only when:
 - Relevant unit tests pass.
 - Related integration or API tests pass.
 - Error cases have been considered.
-- Security implications have been reviewed.
+- Security and privacy implications have been reviewed.
 - The documentation matches actual behavior.
-- No feature is described as complete solely because its code was written.
+- Regression tests are added for fixed defects where practical.
+- The feature is not described as complete solely because its code was written.
 
-## 23. Final Testing Decision
+## 23. Cross-Document Consistency
 
-NetAssist AI will use a test-first approach for file validation, data models, and deterministic detection rules.
+Testing behavior must remain aligned with:
 
-Synthetic fixtures and automated tests will provide repeatable verification without requiring production network access, external AI services, or paid tools.
+- `DATA_MODELS.md` — canonical data structures and invariants.
+- `API_SPECIFICATION.md` — endpoint contracts, errors, warnings and analysis status.
+- `TECH_STACK.md` — implementation technologies and initial rule registry.
+- `DETECTION_RULES.md` — rule IDs, matching behavior, severity and correlation requirements.
+- `PRD.md` — MVP scope and acceptance criteria.
+- `ARCHITECTURE.md` — deterministic processing stages and optional AI/RAG path.
+- `AI_DESIGN.md` — future AI/RAG behavior and fallback expectations.
+- `IMPLEMENTATION_PLAN.md` — implementation order and completion criteria.
 
-The project will prioritize reliable evidence and safe failure behavior over the number of features implemented.
+If a conflict exists, resolve it in the appropriate canonical document before changing test expectations or runtime behavior.
+
+## Final Testing Decision
+
+NetAssist AI will use a test-first approach for file validation, canonical data models and deterministic detection rules.
+
+Synthetic fixtures and automated tests will provide repeatable verification without production network access, external AI services or paid tools.
+
+The MVP will prioritize reliable evidence, safe failure handling and consistent API contracts over the number of features implemented. Optional AI/RAG functionality will be tested separately and must not compromise the deterministic analysis path.

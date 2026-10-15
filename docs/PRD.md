@@ -1,1015 +1,553 @@
 # NetAssist AI — Product Requirements Document
 
-**Document Status:** Planning  
-**Version:** 1.0  
+**Version:** 1.1
+**Status:** Planning / Documentation Baseline
 **Product:** NetAssist AI  
-**Product Type:** Network Log Analysis & Troubleshooting Assistant  
-**Primary Environment:** Local Windows Development  
-**Budget:** Free / Open-Source Tools Only
+**Product Type:** Local-First Network Log Analysis and Troubleshooting Assistant
+**Primary Environment:** Local Windows PC
+**Budget:** Free and Open-Source Tools Where Practical
 
 ---
 
 ## 1. Product Overview
 
-NetAssist AI is an evidence-based network troubleshooting assistant that analyzes network device logs and helps users identify possible networking issues.
+NetAssist AI is a local-first, evidence-based network troubleshooting assistant that analyzes user-supplied network device logs and identifies supported networking events.
 
-The system accepts supplied log files, parses important events, detects known networking problems using deterministic rules, extracts supporting evidence, assigns severity, and provides recommended read-only troubleshooting checks.
+The application validates uploaded files, parses log lines, detects known events through deterministic Python rules, preserves source evidence, assigns severity, identifies cautious possible relationships between events, and provides read-only troubleshooting recommendations.
 
-The system is designed to help network engineers, students, developers, and IT teams reduce the time required to manually inspect large network logs.
+The core analyzer must operate without an external paid AI service. An optional local Retrieval-Augmented Generation (RAG) and Large Language Model (LLM) capability may be added in a later phase.
 
-The initial version will work only with user-supplied log files.
-
-NetAssist AI will **not** directly connect to production routers or switches and will **not** automatically execute configuration commands.
-
----
+NetAssist AI is a decision-support tool. It does not directly connect to production routers or switches, execute network commands, or automatically change network configurations.
 
 ## 2. Problem Statement
 
-Network devices can generate large amounts of logs.
+Network devices generate logs containing interface state changes, routing events, authentication failures, and other operational information.
 
-Examples include:
+Manually reviewing these logs can be time-consuming. Engineers need to identify important events, determine where and when they occurred, preserve supporting evidence, and decide what to investigate next.
 
-- Interface up/down events
-- Link flaps
-- Packet drops
-- CRC errors
-- Input/output errors
-- BGP neighbor changes
-- ARP events
-- MAC learning events
-- VLAN-related events
-- Routing events
-- Authentication or system events
-
-Manually searching these logs can be slow and error-prone.
-
-A user may need to:
-
-1. Find important events.
-2. Determine their severity.
-3. Identify the affected interface, IP, VLAN, or neighbor.
-4. Understand when the event occurred.
-5. Check whether multiple events are related.
-6. Decide what should be investigated next.
+NetAssist AI aims to simplify the first stage of this investigation by converting raw log files into structured, searchable analysis results.
 
-NetAssist AI aims to automate the first level of this investigation while preserving the original evidence.
+The application must distinguish facts directly supported by logs from hypotheses and possible event relationships.
 
----
+## 3. Product Goals
 
-# 3. Product Goals
+### 3.1 Primary Goals
 
-## 3.1 Primary Goals
+The MVP shall:
 
-NetAssist AI should:
+- Accept supported `.log` and `.txt` files.
+- Validate uploaded files before analysis.
+- Parse logs line by line where practical.
+- Detect a limited, explicitly defined set of network events.
+- Preserve original evidence and source line numbers.
+- Extract timestamps and resource identifiers when available.
+- Assign deterministic severity levels.
+- Generate structured event summaries.
+- Identify cautious, evidence-backed possible event relationships.
+- Provide safe, read-only troubleshooting recommendations.
+- Return results through a documented JSON API.
+- Provide a browser-based interface for uploading logs and reviewing results.
+- Operate without a paid LLM or external AI API.
+- Avoid permanent storage of uploaded logs and analysis results by default.
 
-- Accept network log files.
-- Validate uploaded files.
-- Parse log lines.
-- Detect known networking events.
-- Extract useful metadata.
-- Preserve exact source evidence.
-- Assign severity.
-- Group related events.
-- Provide troubleshooting recommendations.
-- Allow users to search and filter results.
-- Generate a structured analysis report.
-- Provide JSON output for machine-readable results.
-- Provide a browser-based interface.
-- Work without an external paid AI service.
+### 3.2 Secondary Goals
 
----
+The following are future enhancements, not MVP commitments:
 
-## 3.2 Secondary Goals
+- Additional network vendors and log formats.
+- Advanced link-flap and interface-counter analysis.
+- Expanded VLAN, ARP, MAC learning, and routing event detection.
+- More advanced event correlation and incident grouping.
+- Optional local RAG and local LLM explanations.
+- Natural-language questions about logs.
+- Downloadable reports.
+- Optional local history and persistence.
+- Read-only network-device integrations.
+- Authentication, multi-user access, and server deployment.
 
-The system should eventually support:
-
-- Multiple network vendors.
-- More advanced event correlation.
-- Historical analysis.
-- Network topology context.
-- Optional local LLM analysis.
-- RAG-based troubleshooting knowledge.
-- Device integrations in read-only mode.
-- Automated report generation.
-- Multi-user access.
-- Authentication.
-- Deployment to a server.
+## 4. Non-Goals
 
-These are not required for the first MVP.
+The MVP will not:
 
----
+- Connect directly to production network devices.
+- Execute commands found in uploaded logs.
+- Execute troubleshooting commands on routers or switches.
+- Modify router, switch, VLAN, routing, or firewall configurations.
+- Automatically remediate incidents.
+- Claim a verified root cause from temporal correlation alone.
+- Require a paid AI API.
+- Require an internet connection for deterministic analysis after dependencies are installed.
+- Store uploaded logs or analysis history permanently by default.
+- Require a database.
+- Require authentication or multi-user functionality.
 
-# 4. Non-Goals
+## 5. Target Users
 
-The MVP will NOT:
+### 5.1 Network Engineers
 
-- Automatically configure routers.
-- Automatically configure switches.
-- Execute commands on network devices.
-- Change routing configuration.
-- Change VLAN configuration.
-- Restart interfaces.
-- Modify firewall rules.
-- Automatically remediate production incidents.
-- Claim a root cause without evidence.
-- Depend on a paid LLM API.
-- Require internet access for the core analyzer.
-- Store uploaded logs permanently by default.
+Upload a log file, inspect detected events, and review evidence and recommended checks.
 
----
+### 5.2 IT Support and Network Operations Teams
 
-# 5. Target Users
+Use structured findings as an initial investigation aid before escalating an incident.
 
-## 5.1 Network Engineer
+### 5.3 Networking Students
 
-A network engineer can upload a router or switch log and quickly identify important events.
+Learn to interpret supported network events using sample logs and evidence-based explanations.
 
-Example:
+### 5.4 Developers and AI Engineers
 
-```text
-Upload router.log
-        ↓
-NetAssist AI
-        ↓
-Detected Events
-        ↓
-Interface Gi0/1 DOWN
-BGP Neighbor DOWN
-CRC Errors
-        ↓
-Recommended Checks
-```
+Use structured analysis results as a foundation for future local AI explanations and RAG-based troubleshooting.
 
----
+## 6. Core User Journey
 
-## 5.2 Network Operations / IT Support
+1. Start NetAssist AI locally.
+2. Open the browser interface.
+3. Select a `.log` or `.txt` file.
+4. Validate the file.
+5. Parse the log and preserve source line information.
+6. Detect supported events using deterministic rules.
+7. Assign severity and extract available metadata.
+8. Identify possible relationships where supported by evidence.
+9. Generate recommendations and structured warnings.
+10. Display the analysis summary and event details.
+11. Inspect the structured JSON response through the API.
 
-Support engineers can use the system as a first-level investigation tool before escalating an incident.
+The analysis flow must not require an LLM.
 
----
+## 7. Functional Requirements
 
-## 5.3 Networking Student
+### FR-001 — Log File Upload
 
-Students can upload sample logs and understand what different networking events mean.
+The application shall accept user-supplied files with the `.log` and `.txt` extensions.
 
----
+Unsupported file types shall be rejected with a clear error response.
 
-## 5.4 Developer / AI Engineer
+### FR-002 — File Validation
 
-Developers can use the structured analysis output as input for future AI-based explanations or automation.
+The application shall validate:
 
----
+- File extension.
+- File size.
+- Empty input.
+- Text readability and supported encoding.
+- Malformed or unexpected input.
 
-# 6. Core User Journey
+The initial maximum upload size is **5 MiB (5 × 1024 × 1024 bytes)**.
 
-The primary user journey is:
+The limit shall be configurable. Validation must not rely only on the client-provided filename or content type.
 
-```text
-Open NetAssist AI
-        ↓
-Upload Log File
-        ↓
-File Validation
-        ↓
-Log Parsing
-        ↓
-Event Detection
-        ↓
-Evidence Extraction
-        ↓
-Severity Assignment
-        ↓
-Event Correlation
-        ↓
-Troubleshooting Recommendations
-        ↓
-Analysis Dashboard
-        ↓
-Export Report / JSON
-```
+### FR-003 — Log Parsing
 
----
+The parser shall process log lines independently where practical.
 
-# 7. Functional Requirements
+It shall preserve:
 
-## FR-001 — Log File Upload
+- Original source line text.
+- One-based source line number.
+- Timestamp when reliably identifiable.
+- Parsed message or event details when available.
+- Source filename when relevant to the analysis.
 
-The system shall allow the user to upload a supported network log file.
+Missing or unrecognized timestamps must not cause the entire analysis to fail.
 
-Initial supported formats:
+The parser must not invent missing metadata.
 
-- `.log`
-- `.txt`
+### FR-004 — Interface State Detection
 
-The system should reject unsupported file types.
+The initial rule set shall detect supported interface-up and interface-down messages.
 
----
+For a matched event, the application shall record the applicable rule ID, event type, severity, description, available resource information, and source evidence.
 
-## FR-002 — File Validation
+Only explicitly tested patterns shall generate structured events.
 
-The system shall validate:
+### FR-005 — BGP Neighbor State Detection
 
-- File extension
-- File size
-- File readability
-- Text encoding
-- Empty files
-- Malformed input
+The initial rule set shall detect supported BGP neighbor-up and neighbor-down messages.
 
-The initial maximum file size should be configurable.
+The application shall extract the neighbor address and timestamp when available and preserve the source evidence.
 
-Initial target:
+A BGP event must not automatically be interpreted as proof of an underlying interface failure.
 
-```text
-5 MB
-```
+### FR-006 — Device Error Detection
 
-The limit may be changed later based on testing.
+The initial rule set shall detect supported device-error messages.
 
----
+A generic occurrence of the word "error" shall not automatically establish a specific network fault.
 
-## FR-003 — Log Parsing
+The event description and severity must follow the corresponding tested rule.
 
-The system shall read uploaded log files line by line.
+### FR-007 — Authentication Failure Detection
 
-Each log line should preserve:
+The initial rule set shall detect supported authentication-failure messages.
 
-- Original text
-- Line number
-- Timestamp if available
-- Parsed message
-- Source information where available
+Evidence must be preserved without unnecessarily exposing credentials, tokens, or other sensitive values.
 
-Example:
+The application shall not attempt authentication against any network device.
 
-```text
-Line: 154
-Timestamp: 2026-10-15 10:31:22
-Message: %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down
-```
+### FR-008 — Explicit Rule Registry
 
----
+The initial detection rules shall follow the identifiers defined in `DETECTION_RULES.md`:
 
-## FR-004 — Interface Event Detection
+- `IFACE_DOWN_001`
+- `IFACE_UP_001`
+- `BGP_NEIGHBOR_DOWN_001`
+- `BGP_NEIGHBOR_UP_001`
+- `DEVICE_ERROR_001`
+- `AUTH_FAILURE_001`
 
-The system shall detect interface state events.
+These identifiers define the initial implementation scope. Additional rules shall be added only after their patterns, extracted fields, severity, evidence behavior, and tests are documented.
 
-Examples:
+A rule listed in documentation is not considered implemented until working code and tests exist.
 
-```text
-Interface changed state to down
-Interface changed state to up
-Interface administratively down
-```
+### FR-009 — Severity Assignment
 
-Example detection:
+Each detected event shall receive one of the canonical severity values:
 
-```text
-Interface:
-GigabitEthernet0/1
+- `INFO`
+- `LOW`
+- `MEDIUM`
+- `HIGH`
+- `CRITICAL`
 
-State:
-DOWN
+Severity assignment shall be deterministic and rule-based for the MVP.
 
-Evidence:
-%LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down
-```
+Severity shall not be determined solely by the number of alarming words in a log line. A severity level does not guarantee actual business impact.
 
----
+### FR-010 — Evidence Preservation
 
-## FR-005 — Link Flap Detection
+Every detected event shall contain supporting evidence consistent with `DATA_MODELS.md`.
 
-The system shall identify repeated interface state changes when sufficient timestamp information is available.
+Evidence shall preserve the source line number and original text. Timestamps and source filenames shall be included when available.
 
-Example:
+The system shall not create an event without evidence supporting the corresponding rule match.
 
-```text
-10:01:01 Gi0/1 DOWN
-10:01:08 Gi0/1 UP
-10:01:15 Gi0/1 DOWN
-10:01:23 Gi0/1 UP
-```
+### FR-011 — Possible Event Correlation
 
-The system may classify this as:
+The analyzer may identify possible relationships between supported events using explicit, deterministic criteria.
 
-```text
-Potential Link Flap
-```
+For example, an interface-down event followed shortly by a BGP-neighbor-down event may be reported as a possible relationship.
 
-The system must preserve the underlying events as evidence.
+The correlation result shall:
 
----
+- Reference existing event IDs.
+- Include supporting evidence.
+- Describe the observed relationship.
+- Include a confidence value when supported by the correlation logic.
+- Avoid presenting temporal order as proof of causality.
+- Leave `is_confirmed_cause` false unless a separately verified process is introduced in a future version.
 
-## FR-006 — BGP Event Detection
+Advanced topology-aware correlation is outside the initial MVP.
 
-The system shall detect important BGP neighbor events.
+### FR-012 — Troubleshooting Recommendations
 
-Examples:
+The application shall provide structured, read-only recommendations for supported events.
 
-```text
-BGP neighbor DOWN
-BGP neighbor UP
-BGP adjacency change
-BGP session reset
-```
+Examples include checking interface status, reviewing interface counters, inspecting relevant logs, and verifying BGP neighbor state.
 
-The system should extract:
+Each recommendation shall follow the canonical recommendation model, including its action type, risk level, and authorization requirement.
 
-- Neighbor IP
-- State
-- Timestamp
-- Original evidence
+Recommendations are guidance only. The application shall never execute the suggested commands.
 
-Example:
+### FR-013 — Analysis Summary
 
-```text
-Neighbor:
-192.0.2.2
+The analysis response shall include the canonical summary fields defined in `DATA_MODELS.md`, including total lines processed and event counts by severity.
 
-State:
-DOWN
+Summary counts must be derived from the actual analysis results and remain internally consistent.
 
-Severity:
-HIGH
-```
+### FR-014 — Browser Interface
 
----
+The MVP browser interface shall allow users to:
 
-## FR-007 — Error Detection
+- Select a supported log file.
+- Submit the file for analysis.
+- View validation or analysis errors.
+- View the analysis summary.
+- Inspect detected events.
+- Inspect severity, resource details, and source evidence.
+- Review possible correlations, warnings, and recommendations.
 
-The system should detect supported network error indicators.
+Advanced dashboard features such as multiple filters, full-text search, historical comparisons, and downloadable reports may be added after the core workflow is validated.
 
-Initial examples:
+### FR-015 — JSON API
 
-- CRC errors
-- Input errors
-- Output errors
-- Packet drops
-- Interface errors
+The application shall return a structured JSON analysis result from:
 
-Detection must depend on explicit supported patterns.
+`POST /api/v1/analyze`
 
-The system must not treat an arbitrary occurrence of the word "error" as a confirmed network fault.
+The response shall conform to the canonical `AnalysisResult` model defined in `DATA_MODELS.md` and the contract documented in `API_SPECIFICATION.md`.
 
----
+The API response shall contain the analysis summary, events, correlations, warnings, and processing metadata as specified by the canonical model.
 
-## FR-008 — VLAN Event Detection
+The MVP does not require a separate report-download endpoint or permanent analysis-history endpoint.
 
-The system should detect supported VLAN-related events.
+### FR-016 — Health and Readiness
 
-Examples may include:
+The application shall provide the following endpoints:
 
-- VLAN unavailable
-- VLAN mismatch
-- VLAN-related interface errors
-- Trunk-related events
+- `GET /health`
+- `GET /ready`
+- `GET /api/v1/info`
 
-Only explicitly supported patterns should produce structured alerts.
+Their behavior and response contracts shall follow `API_SPECIFICATION.md`.
 
----
+### FR-017 — Optional AI Extension
 
-## FR-009 — ARP Event Detection
+The deterministic analyzer shall operate when AI is disabled.
 
-The system should detect supported ARP-related events.
+Future local AI functionality may generate natural-language explanations, summarize evidence, or retrieve relevant troubleshooting guidance from a local knowledge base.
 
-Examples:
+AI output shall remain advisory and must not silently alter deterministic event detection, severity, source evidence, or correlation results.
 
-- ARP resolution failure
-- Duplicate IP indicators
-- ARP-related errors
+The AI extension must follow `AI_DESIGN.md` and any approved changes to the canonical data models and API contract.
 
-The exact rule set will be defined in `DETECTION_RULES.md`.
+## 8. Canonical Data Contracts
 
----
+The following documents define the authoritative implementation contracts:
 
-## FR-010 — MAC Learning Event Detection
+- `DATA_MODELS.md` — canonical models, field names, enums, and invariants.
+- `API_SPECIFICATION.md` — endpoint behavior, validation, and response formats.
+- `DETECTION_RULES.md` — rule identifiers, matching behavior, and severity.
+- `ARCHITECTURE.md` — component boundaries and processing flow.
+- `AI_DESIGN.md` — optional local RAG and AI behavior.
+- `SECURITY_AND_PRIVACY.md` — file handling, safety, and privacy controls.
+- `TESTING_STRATEGY.md` — validation and test requirements.
+- `IMPLEMENTATION_PLAN.md` — implementation order and phase exit criteria.
 
-The system should detect supported MAC-related events.
+These documents must remain consistent. A new field or endpoint must not be introduced in code without updating the relevant canonical contract.
 
-Examples:
+## 9. Fact, Hypothesis, and Root Cause
 
-- MAC address learned
-- MAC address removed
-- MAC movement
-- MAC flapping indicators
+NetAssist AI shall distinguish between three concepts.
 
-Detection rules must clearly distinguish confirmed events from hypotheses.
+### 9.1 Observed Fact
 
----
+A fact is directly supported by source evidence.
 
-# 8. Severity Model
+Example: a log line reports that an interface changed state to down.
 
-Each detected event should receive a severity level.
+### 9.2 Possible Relationship
 
-Initial severity levels:
+A possible relationship is a hypothesis supported by a defined correlation rule.
 
-```text
-INFO
-LOW
-MEDIUM
-HIGH
-CRITICAL
-```
+Example: a BGP neighbor-down event occurred shortly after an interface-down event.
 
-### INFO
+### 9.3 Verified Root Cause
 
-Normal informational events.
+The MVP shall not claim a verified root cause solely because events occurred near one another in time.
 
-Example:
+Descriptions and recommendations shall make uncertainty clear and identify further checks where appropriate.
 
-```text
-Interface changed to UP
-```
+## 10. Privacy and Security Requirements
 
-### LOW
+The application shall:
 
-Minor event requiring awareness.
-
-Example:
-
-```text
-Single non-critical warning
-```
-
-### MEDIUM
-
-Potential operational issue.
-
-Example:
-
-```text
-Repeated interface errors
-```
-
-### HIGH
-
-Significant network problem.
-
-Example:
-
-```text
-BGP neighbor down
-```
-
-### CRITICAL
-
-Potentially severe network impact.
-
-Critical classification must require strong evidence and should not be assigned merely because a log contains words such as "error" or "failure".
-
----
-
-# 9. Evidence Requirements
-
-Every detected event should contain evidence.
-
-Minimum structure:
-
-```text
-Rule ID
-Event Type
-Severity
-Timestamp
-Affected Resource
-Source Line
-Evidence
-Explanation
-Recommended Checks
-```
-
-Example:
-
-```json
-{
-  "rule_id": "IFACE_DOWN_001",
-  "event_type": "interface_down",
-  "severity": "HIGH",
-  "resource": "GigabitEthernet0/1",
-  "line_number": 154,
-  "evidence": "%LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down"
-}
-```
-
----
-
-# 10. Fact vs Hypothesis
-
-This is a core product principle.
-
-NetAssist AI must clearly distinguish between:
-
-### Confirmed Fact
-
-Directly supported by the log.
-
-Example:
-
-```text
-FACT:
-GigabitEthernet0/1 changed state to DOWN at 10:31:22.
-```
-
-### Possible Relationship
-
-A relationship suggested by multiple events.
-
-Example:
-
-```text
-POSSIBLE RELATIONSHIP:
-BGP neighbor 192.0.2.2 went DOWN approximately 2 seconds
-after GigabitEthernet0/1 changed state to DOWN.
-```
-
-### Root Cause
-
-The system should not claim:
-
-```text
-Root cause = interface failure
-```
-
-unless sufficient evidence exists.
-
-Instead it should say:
-
-```text
-Possible cause:
-Interface instability may have contributed to the BGP session loss.
-Further verification is required.
-```
-
----
-
-# 11. Troubleshooting Recommendations
-
-Recommendations must be read-only.
-
-Examples:
-
-```text
-Check interface status.
-Check interface counters.
-Check CRC/input errors.
-Check physical connectivity.
-Check transceiver status.
-Check BGP neighbor state.
-Check routing table.
-Check ARP table.
-Check VLAN configuration.
-```
-
-The system must NOT automatically execute these commands.
-
----
-
-# 12. Event Correlation
-
-NetAssist AI should eventually correlate events.
-
-Example:
-
-```text
-10:30:01 Interface Gi0/1 DOWN
-10:30:03 BGP Neighbor 192.0.2.2 DOWN
-```
-
-Possible result:
-
-```text
-Correlation:
-Possible relationship detected.
-
-Evidence:
-Gi0/1 went DOWN 2 seconds before the BGP neighbor went DOWN.
-
-Confidence:
-Medium
-
-Verification:
-Check whether the BGP neighbor uses Gi0/1 as its transport path.
-```
-
-Correlation must never automatically become a confirmed root cause.
-
----
-
-# 13. Dashboard Requirements
-
-The web interface should provide:
-
-## Summary
-
-Display:
-
-- Total log lines
-- Total detected events
-- High severity events
-- Critical events
-- Interfaces affected
-- BGP neighbors affected
-
----
-
-## Event List
-
-Each event should display:
-
-```text
-Severity
-Event Type
-Timestamp
-Resource
-Short Description
-```
-
----
-
-## Event Details
-
-When a user selects an event, display:
-
-```text
-Event
-Severity
-Timestamp
-Affected Resource
-Evidence
-Source Line
-Explanation
-Recommended Checks
-Rule ID
-```
-
----
-
-## Filtering
-
-Users should be able to filter by:
-
-- Severity
-- Event type
-- Interface
-- IP address
-- Timestamp
-- Rule ID
-
----
-
-## Search
-
-The dashboard should provide text search across detected events and evidence.
-
----
-
-# 14. Report Generation
-
-The system should provide a structured analysis report.
-
-Example:
-
-```text
-NetAssist AI Analysis Report
-
-File:
-router.log
-
-Analysis Summary:
-- 1 interface down event
-- 1 BGP neighbor down event
-- 4 interface error events
-
-High Severity:
-- BGP neighbor 192.0.2.2 DOWN
-
-Potential Correlation:
-- Interface Gi0/1 DOWN occurred 2 seconds before
-  BGP neighbor DOWN.
-
-Recommended Checks:
-1. Verify Gi0/1 operational state.
-2. Check interface counters.
-3. Verify physical connectivity.
-4. Check BGP neighbor state.
-```
-
----
-
-# 15. JSON Output
-
-The analyzer should support machine-readable JSON output.
-
-Example structure:
-
-```json
-{
-  "analysis_id": "example-id",
-  "file_name": "router.log",
-  "summary": {
-    "total_lines": 500,
-    "events_detected": 4
-  },
-  "events": [],
-  "correlations": [],
-  "recommendations": []
-}
-```
-
-The exact API schema will be defined in `API_SPEC.md`.
-
----
-
-# 16. AI / LLM Requirements
-
-AI functionality is optional in the MVP.
-
-The deterministic analyzer must work without an LLM.
-
-Later, an AI layer may provide:
-
-- Natural-language explanations
-- Incident summaries
-- Troubleshooting guidance
-- Log question answering
-- Multi-event reasoning
-- RAG-based networking knowledge
-
-Preferred approach:
-
-```text
-Deterministic Analyzer
-        ↓
-Structured Evidence
-        ↓
-Optional AI Layer
-        ↓
-Human-readable Explanation
-```
-
-The AI layer must not replace the evidence-based detection engine.
-
----
-
-# 17. Privacy Requirements
-
-Uploaded logs may contain sensitive information.
-
-Therefore:
-
-- Logs should not be sent to external AI services by default.
-- Uploaded files should not be permanently stored by default.
-- Temporary processing data should be cleaned up.
-- Sensitive values should be considered during future redaction design.
-- No credentials should be extracted and displayed unnecessarily.
-- `.env` files and secrets must never be committed to Git.
-
----
-
-# 18. Security Requirements
-
-The application must:
-
-- Validate uploaded files.
-- Restrict file size.
-- Avoid arbitrary command execution.
-- Never execute commands contained inside uploaded logs.
-- Never execute network-device configuration commands.
-- Avoid path traversal.
-- Sanitize filenames.
+- Process uploaded logs locally.
+- Avoid sending logs to external AI services.
+- Avoid permanent storage of uploaded files and results by default.
+- Clean up temporary files and processing artifacts.
+- Validate file size and type.
+- Avoid unsafe path handling.
+- Sanitize filenames before using them in display or file operations.
 - Handle malformed input safely.
+- Never execute content found in uploaded logs.
 - Keep secrets outside source code.
-- Avoid unnecessary persistence of logs.
+- Exclude credentials, virtual environments, caches, and local secrets from Git.
+- Avoid unnecessarily displaying sensitive information.
 
----
+Optional local AI components must not bypass the application's privacy and safety controls.
 
-# 19. Performance Requirements
+## 11. Performance and Reliability
 
-For the MVP, the system should provide responsive analysis for normal-sized log files.
+The initial performance target is to analyze supported log files up to 5 MiB on the local development machine.
 
-Initial target:
+Performance shall be measured during testing rather than assumed.
 
-```text
-Up to 5 MB log file
-```
+The analyzer shall:
 
-The system should process logs line-by-line where practical rather than loading unnecessarily large data structures into memory.
+- Process valid lines when another line is malformed, where safe and practical.
+- Return structured errors for invalid uploads.
+- Report relevant parsing limitations through supported warnings.
+- Preserve source evidence for detected events.
+- Produce deterministic results for the same input and rule-set version, excluding intentionally variable metadata such as generated IDs, timestamps, and processing duration.
+- Avoid requiring external network access for the deterministic analysis path after local dependencies are installed.
 
-Performance will be measured during testing.
+## 12. Testing Requirements
 
----
+### 12.1 Unit Tests
 
-# 20. Reliability Requirements
+Tests shall cover:
 
-The analyzer should:
+- File validation.
+- Parsing and source line numbering.
+- Timestamp extraction.
+- Each implemented detection rule.
+- Resource extraction.
+- Severity assignment.
+- Summary generation.
+- Correlation logic.
+- Recommendation generation.
+- Canonical model validation.
 
-- Never crash because of one malformed log line.
-- Continue processing valid lines when possible.
-- Report parsing limitations.
-- Preserve evidence for detected events.
-- Produce deterministic results for the same input and rule version.
+### 12.2 API Integration Tests
 
----
+Tests shall cover:
 
-# 21. Testing Requirements
+- Health and readiness endpoints.
+- Application information endpoint.
+- Successful log upload and analysis.
+- Unsupported extensions.
+- Empty and oversized uploads.
+- Invalid or unsupported text encoding.
+- Structured success and error responses.
+- Temporary-file cleanup where applicable.
 
-Testing must cover:
+### 12.3 UI Tests
 
-### Unit Tests
+The initial UI validation shall cover:
 
-- Parser
-- Regex rules
-- Event extraction
-- Severity assignment
-- Correlation logic
-- Validation
+- File selection and submission.
+- Display of analysis results.
+- Display of source evidence.
+- Handling of API and validation errors.
 
-### Integration Tests
+Advanced UI automation may be added as the interface develops.
 
-- File upload
-- Analysis API
-- Report generation
-- JSON response
+### 12.4 Negative and Safety Tests
 
-### UI Tests
+Tests shall verify that:
 
-- Upload workflow
-- Event display
-- Filtering
-- Search
+- Unknown log patterns do not generate invented events.
+- Malformed lines do not crash the entire analysis unnecessarily.
+- Missing timestamps are handled safely.
+- Uploaded text is treated as data, not as instructions.
+- No network-device commands are executed.
+- No paid AI service is required for core tests.
+- AI-disabled operation remains functional.
 
-### Negative Tests
+## 13. MVP Acceptance Criteria
 
-- Empty file
-- Unsupported file
-- Oversized file
-- Invalid encoding
-- Malformed log
-- Missing timestamp
-- Unknown event
+The MVP is complete when:
 
----
+1. The application can be started locally using documented instructions.
+2. The browser interface can submit supported log files.
+3. The upload validation enforces the configured 5 MiB limit.
+4. The parser preserves original evidence and line numbers.
+5. The six initial rule identifiers have implemented, tested behavior.
+6. Severity and summaries follow the canonical models.
+7. Supported correlations are cautious and evidence-backed.
+8. Recommendations follow the structured recommendation model.
+9. The four documented API endpoints work according to their specifications.
+10. The analysis endpoint returns a valid canonical `AnalysisResult`.
+11. The browser displays summaries, events, evidence, and relevant recommendations.
+12. Automated tests cover the core analysis and validation paths.
+13. The core analyzer works with AI disabled and without a paid AI service.
+14. Uploaded logs are not permanently stored by default.
+15. No production device access or automatic configuration is performed.
 
-# 22. Acceptance Criteria for MVP
+Features not included in these criteria shall not block MVP completion unless they are formally added to the approved scope.
 
-The MVP will be considered complete when:
+## 14. MVP Success Metrics
 
-- A user can start the application locally.
-- A user can open the browser UI.
-- A user can upload a `.log` or `.txt` file.
-- The file is validated.
-- The log is parsed.
-- Supported network events are detected.
-- Evidence is displayed.
-- Severity is assigned.
-- Recommended checks are shown.
-- Users can filter detected events.
-- Users can search results.
-- JSON output is available.
-- Tests cover the core analyzer.
-- The application works without a paid LLM.
-- No production network device access is required.
-- No automatic network configuration is performed.
-
----
-
-# 23. MVP Success Metrics
-
-Initial success will be measured using:
+Success shall be evaluated using a controlled test corpus.
 
 ### Detection Accuracy
 
-Percentage of known test events correctly detected.
+The proportion of expected supported events correctly detected.
 
 ### False Positive Rate
 
-Percentage of alerts that are incorrectly generated.
+The proportion of generated events that are not supported by the expected test evidence.
 
 ### Evidence Accuracy
 
-Percentage of detected events that contain correct source evidence.
+The proportion of detected events whose source line and evidence match the original input.
 
 ### Parser Reliability
 
-Percentage of valid test logs processed without application failure.
+The proportion of supported test files processed without an unexpected application failure.
 
 ### Reproducibility
 
-Same input + same rule version should produce the same deterministic result.
+Consistency of deterministic analysis results for identical input and rule-set versions, accounting for intentionally variable metadata.
 
----
+### Safety
 
-# 24. Future Product Versions
+Successful completion of tests demonstrating that uploaded content is not executed and network configurations are not modified.
 
-## Version 1.1
+Metrics shall be measured and reported; they must not be represented as achieved results before testing.
 
-Potential additions:
+## 15. Future Product Versions
 
-- More Cisco-style patterns
-- Additional vendor formats
-- Better timestamp parsing
-- More interface error rules
-- More routing rules
-
----
-
-## Version 1.2
+### Version 1.1 — Detection Improvements
 
 Potential additions:
 
-- Event correlation engine
-- Incident grouping
-- Confidence scoring
-- Historical analysis
-- SQLite-based local history
+- Additional vendor-specific patterns.
+- More interface and routing rules.
+- Improved timestamp handling.
+- Explicitly tested link-flap detection.
+- Additional error, VLAN, ARP, and MAC learning rules.
 
----
-
-## Version 2.0
+### Version 1.2 — Analysis Improvements
 
 Potential additions:
 
-- Optional local LLM
-- RAG knowledge base
-- Natural-language investigation
-- AI-generated incident summaries
-- Interactive troubleshooting assistant
+- Advanced correlation rules.
+- Incident grouping.
+- Improved confidence scoring.
+- Optional local history and SQLite persistence.
 
----
-
-## Version 3.0
+### Version 2.0 — Optional Local AI and RAG
 
 Potential additions:
 
-- Read-only device integrations
-- Network topology awareness
-- Multi-user access
-- Authentication
-- Centralized deployment
-- Monitoring integrations
+- Local embedding models.
+- Local vector search and knowledge indexing.
+- Optional local LLM explanations.
+- Citation-backed troubleshooting answers.
+- Natural-language investigation.
+- AI-generated incident summaries.
 
----
+This phase remains optional and must not make the deterministic analyzer dependent on AI.
 
-# 25. Product Safety Principle
+### Version 3.0 — Extended Integrations
 
-NetAssist AI is an **analysis and decision-support system**, not an autonomous network administrator.
+Potential additions:
 
-The system should help answer:
+- Explicitly authorized read-only device integrations.
+- Network topology context.
+- Authentication and multi-user access.
+- Centralized deployment.
+- Monitoring integrations.
 
-```text
-What happened?
-Where did it happen?
-When did it happen?
-What evidence supports it?
-What might be related?
-What should I check next?
-```
+Any future device integration or deployment must undergo separate security and privacy review.
 
-It should not automatically decide:
+## 16. Product Safety Principle
 
-```text
-What configuration should I change?
-```
+NetAssist AI is an analysis and decision-support system, not an autonomous network administrator.
 
-or execute:
+It helps users answer:
 
-```text
-configure terminal
-interface ...
-shutdown
-no shutdown
-router ...
-```
+- What happened?
+- Where and when did it happen?
+- What source evidence supports the event?
+- Which events may be related?
+- What should be investigated next?
 
-without an explicitly designed and separately approved future workflow.
+It does not automatically decide or execute network configuration changes.
 
----
+## 17. Product Definition
 
-# 26. Product Definition
+**NetAssist AI is an evidence-based network troubleshooting assistant that converts raw network logs into structured events, severity-aware findings, source-backed explanations, cautious possible correlations, and safe troubleshooting recommendations.**
 
-The final product can be summarized as:
+The product follows these principles:
 
-> **NetAssist AI is an evidence-based network troubleshooting assistant that converts raw network logs into structured events, severity-aware alerts, evidence-backed explanations, possible correlations, and safe troubleshooting recommendations.**
-
-The core philosophy is:
-
-```text
-Logs
-  ↓
-Parse
-  ↓
-Detect
-  ↓
-Preserve Evidence
-  ↓
-Classify
-  ↓
-Correlate Carefully
-  ↓
-Recommend
-  ↓
-Explain
-```
-
-The deterministic analyzer is the foundation.
-
-AI is an optional enhancement, not the foundation.
+1. Deterministic analysis comes first.
+2. Evidence must be preserved.
+3. Unknown patterns must not produce invented facts.
+4. Correlation does not prove causation.
+5. Recommendations remain advisory and read-only.
+6. Local privacy is the default.
+7. AI and RAG are optional enhancements, not requirements for core analysis.
+8. A documented feature is not complete until it is implemented and tested.

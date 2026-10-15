@@ -2,187 +2,257 @@
 
 **Document:** System Architecture  
 **Project:** NetAssist AI  
-**Version:** 1.0  
+**Version:** 1.1
 **Status:** Design Phase  
-**Architecture Style:** Modular Layered Architecture  
+**Architecture Style:** Modular Layered Architecture with Dual Analysis Paths
 **Backend:** Python + FastAPI  
 **Frontend:** HTML + CSS + JavaScript  
-**Core Principle:** Deterministic, Evidence-Based Analysis
+**Core Principle:** Deterministic, Evidence-Based Analysis with Optional Local RAG
 
 ---
 
 ## 1. Architecture Overview
 
-NetAssist AI is a local-first network log analysis application that helps users identify network-related events from uploaded log files.
+NetAssist AI is a local-first network log troubleshooting application. It analyzes uploaded network logs, identifies supported events, preserves source evidence, identifies potential relationships between events, and provides safe troubleshooting recommendations.
 
-The initial Minimum Viable Product (MVP) uses deterministic detection rules to identify supported conditions, preserve supporting evidence, correlate potentially related events, and provide safe troubleshooting recommendations.
+The architecture has two analysis paths:
 
-The architecture separates the following responsibilities:
+- **Path A — Deterministic Rule-Based Analysis:** A reliable baseline that works without an LLM, external AI service, or internet connection.
+- **Path B — RAG-Assisted Explanation:** An optional local Retrieval-Augmented Generation pipeline that retrieves relevant networking knowledge and uses a local language model to explain detected events.
 
-- Browser-based user interface.
-- FastAPI application and API layer.
-- File validation and temporary input handling.
-- Log parsing.
-- Deterministic event detection.
-- Event normalization.
-- Event correlation.
-- Recommendation generation.
-- Analysis result construction.
-- API response generation.
+Both paths share the same upload validation, parsing, normalized event data, and deterministic detection engine.
 
-Optional AI explanations, Retrieval-Augmented Generation (RAG), persistent analysis history, and device integrations are future extensions, not MVP requirements.
+The RAG path supplements the deterministic results. It does not replace the detection engine or independently determine authoritative event severity.
 
-### High-Level Architecture
+The initial implementation will prioritize the rule-based path. RAG will be implemented after the core analyzer is tested.
 
-```text
-                 ┌────────────────────────┐
-                 │         User           │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │     Web Dashboard      │
-                 │   HTML/CSS/JavaScript  │
-                 └────────────┬───────────┘
-                              │ HTTP / REST
-                              ▼
-                 ┌────────────────────────┐
-                 │       FastAPI          │
-                 │     API Layer          │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │    Upload Validation   │
-                 │ Type / Size / Encoding │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │      Log Parser        │
-                 │ Records / Timestamps   │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │   Detection Engine     │
-                 │     Rule Matching      │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │  Event Normalization   │
-                 │   Structured Events    │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │   Correlation Engine   │
-                 │ Potential Relationships│
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │ Recommendation Engine  │
-                 │ Safe Advisory Checks   │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │   Result Construction  │
-                 │    AnalysisResult      │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │     API Response       │
-                 │       JSON             │
-                 └────────────┬───────────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │     Web Dashboard      │
-                 │ Events / Evidence      │
-                 └────────────────────────┘
-```
+### Architecture Principles
 
-The initial architecture does not require a database, external AI service, or production network device access.
+1. Detection is mandatory; AI is optional.
+2. Evidence is required for important detections.
+3. RAG explanations must be grounded in retrieved knowledge and available log evidence.
+4. The application must remain useful when the local AI components are unavailable.
+5. Uploaded logs and analysis results must not be permanently stored by default.
+6. No automatic network-device commands or configuration changes are permitted.
+7. Paid external AI APIs are not required.
 
-## 2. Core Architecture Principles
-
-The most important design decisions are:
+## 2. High-Level Architecture
 
 ```text
-AI is optional.
-Detection is mandatory.
-Evidence is mandatory.
-Privacy is mandatory.
+                         USER
+                           |
+                           v
+                 WEB DASHBOARD
+                  HTML/CSS/JS
+                           |
+                       HTTP/REST
+                           |
+                           v
+                       FASTAPI
+                           |
+                           v
+                  UPLOAD VALIDATION
+                           |
+                           v
+                      LOG PARSER
+                           |
+                           v
+                NORMALIZED LOG RECORDS
+                           |
+                           v
+              DETERMINISTIC DETECTION
+                           |
+                           v
+                 NORMALIZED EVENTS
+                           |
+              +------------+------------+
+              |                         |
+              v                         v
+       PATH A: RULE-BASED        PATH B: RAG-ASSISTED
+              |                         |
+       Event correlation        Evidence/context selection
+              |                         |
+       Recommendations          Knowledge retrieval
+              |                         |
+              |                   Local embeddings
+              |                         |
+              |                   Vector search
+              |                         |
+              |                   Retrieved passages
+              |                         |
+              |                   Local LLM explanation
+              |                         |
+              +------------+------------+
+                           |
+                           v
+                  RESULT ASSEMBLY
+                           |
+                           v
+                    ANALYSIS RESULT
+                           |
+                           v
+                    JSON RESPONSE
+                           |
+                           v
+                    WEB DASHBOARD
 ```
 
-The system must continue to perform core analysis if:
+The rule-based path must not depend on RAG, a vector database, a local language model, or internet access.
 
-- No LLM is installed.
-- Internet access is unavailable.
-- AI configuration is disabled.
-- An optional AI service is unavailable.
+The RAG path is optional and may be disabled through configuration.
 
-The deterministic detection engine is the source of truth for detected events and their severity.
+## 3. Two Analysis Paths
 
-The same input and rule version should produce the same core detection results, subject to explicitly controlled configuration and processing behavior.
+### 3.1 Path A — Deterministic Rule-Based Analysis
 
-## 3. Architectural Layers
-
-The MVP uses these logical layers:
+This path is the mandatory baseline.
 
 ```text
-Layer 1  → Presentation
-Layer 2  → API
-Layer 3  → File Validation
-Layer 4  → Parsing
-Layer 5  → Detection
-Layer 6  → Event Normalization
-Layer 7  → Correlation
-Layer 8  → Recommendations
-Layer 9  → Analysis Result Construction
-Layer 10 → API Response and Presentation
+Parsed Records
+     |
+     v
+Rule Matching
+     |
+     v
+Normalized Events
+     |
+     v
+Event Correlation
+     |
+     v
+Safe Recommendations
+     |
+     v
+Analysis Result
 ```
 
-AI/RAG is a future extension and is not part of the required MVP processing path.
+Responsibilities:
 
-Each layer must have a clearly defined responsibility and be independently testable wherever practical.
+- Detect supported network events using documented rules.
+- Assign severity through deterministic rule definitions.
+- Preserve source line numbers and supporting evidence.
+- Identify potential relationships among detected events.
+- Generate predefined, human-verifiable recommendations.
+- Produce a structured analysis result.
+- Continue working when AI is disabled or unavailable.
 
-## 4. Layer 1 — Presentation
+The same input and ruleset should produce the same core detections, subject to controlled configuration and implementation behavior.
 
-The presentation layer is a browser-based dashboard built using:
+### 3.2 Path B — RAG-Assisted Explanation
 
-- HTML
-- CSS
-- JavaScript
+This path adds knowledge retrieval and optional local LLM explanations to the shared analysis pipeline.
+
+```text
+Validated Analysis Evidence
+          |
+          v
+Relevant Context Selection
+          |
+          v
+Query Construction
+          |
+          v
+Embedding Generation
+          |
+          v
+Local Vector Retrieval
+          |
+          v
+Retrieved Knowledge Passages
+          |
+          v
+Local LLM
+          |
+          v
+Explanation Validation
+          |
+          v
+Grounded Explanation
+```
+
+The RAG path may:
+
+- Explain a detected network event in plain language.
+- Retrieve relevant troubleshooting documentation.
+- Explain possible causes supported by the available evidence.
+- Suggest additional read-only checks.
+- Cite retrieved passages or document sections.
+- Clearly communicate missing information and uncertainty.
+
+The RAG path must not:
+
+- Invent authoritative detections.
+- Change rule-generated event severity.
+- Alter event IDs, rule IDs, or source evidence.
+- Convert a possible correlation into a confirmed root cause without sufficient evidence.
+- Execute commands or modify network devices.
+- Treat uploaded log content as trusted instructions.
+
+**Important:** RAG is not itself an API. FastAPI remains the application's local HTTP API. The local RAG pipeline can run without a paid cloud AI API when its required models and knowledge base are available locally.
+
+## 4. RAG Availability and Fallback
+
+The application must distinguish between the availability of the rule-based analyzer and the availability of the optional RAG components.
+
+| Situation | Expected behavior |
+|---|---|
+| AI is disabled | Return rule-based results. |
+| Local LLM is not installed | Return rule-based results. |
+| Vector index is unavailable | Return rule-based results and a controlled warning if RAG was requested. |
+| RAG retrieval fails | Preserve the deterministic results and report the optional component failure. |
+| LLM generation fails | Return the deterministic results without inventing an AI explanation. |
+| Internet is unavailable | Use the local knowledge base and local models if they are already available. |
+| AI works successfully | Include a validated, evidence-grounded explanation alongside the deterministic results. |
+
+The system must not silently present an AI explanation as successful when generation failed.
+
+The API response must communicate whether AI was used and whether optional processing encountered a problem. The exact metadata and warning fields must be defined consistently in `docs/DATA_MODELS.md` and `docs/API_SPECIFICATION.md`.
+
+## 5. Architectural Layers
+
+The logical layers are:
+
+1. Presentation.
+2. API and request handling.
+3. Upload validation.
+4. Parsing.
+5. Event normalization.
+6. Deterministic detection.
+7. Correlation.
+8. Recommendation generation.
+9. Optional RAG retrieval and explanation.
+10. Result assembly and validation.
+11. API response and frontend rendering.
+
+Each layer should have a clearly defined responsibility and be independently testable wherever practical.
+
+The parser and detection engine must not depend on FastAPI or frontend code. The RAG components must remain isolated from authoritative detection logic.
+
+## 6. Presentation Layer
+
+The frontend uses HTML, CSS, and JavaScript.
 
 Responsibilities:
 
 - Upload `.log` and `.txt` files.
 - Display validation and analysis errors.
-- Display analysis status.
-- Display summary counts.
-- Display detected events and severity.
-- Display evidence and source line numbers.
-- Display potential correlations.
-- Display troubleshooting recommendations.
+- Show analysis status and summary counts.
+- Display events, severity, and source evidence.
+- Display potential correlations and recommendations.
+- Display optional AI explanations and their source references.
+- Indicate when AI is disabled, unavailable, or not used.
 - Search and filter displayed results.
-- Present the returned analysis result.
+- Render log-derived content safely.
 
-The frontend must not implement the core detection rules. Detection logic belongs in the backend.
+The frontend must not implement detection rules or treat uploaded content as executable HTML or JavaScript.
 
-Log-derived content must be rendered safely. Uploaded text must never be interpreted as executable HTML or JavaScript.
+The initial MVP does not require a separate report-export feature.
 
-Separate export functionality is not required for the initial MVP.
+## 7. API Layer
 
-## 5. Layer 2 — API
+The backend uses FastAPI.
 
-The API layer uses FastAPI.
-
-### MVP Endpoints
+### MVP endpoints
 
 | Method | Endpoint | Purpose |
 |---|---|---|
@@ -191,11 +261,11 @@ The API layer uses FastAPI.
 | GET | `/api/v1/info` | Application and supported capability information |
 | POST | `/api/v1/analyze` | Validate and analyze an uploaded log file |
 
-The complete endpoint contract is defined in `docs/API_SPECIFICATION.md`.
+The complete contracts are defined in `docs/API_SPECIFICATION.md`.
 
-The `POST /api/v1/analyze` endpoint returns the complete `AnalysisResult` directly in the response.
+`POST /api/v1/analyze` returns an `AnalysisResult` directly. The result is not permanently stored by default.
 
-The MVP does not include:
+The initial MVP does not include:
 
 - An analysis-history endpoint.
 - A saved-analysis retrieval endpoint.
@@ -203,90 +273,46 @@ The MVP does not include:
 - An endpoint for executing commands.
 - An endpoint for modifying network-device configuration.
 
-The API must validate input, return controlled HTTP errors, and avoid exposing internal stack traces or sensitive server details.
+The API must validate inputs, return controlled HTTP errors, and avoid exposing internal stack traces or sensitive server information.
 
-## 6. Layer 3 — File Validation
+## 8. File Validation and Temporary Processing
 
-Uploaded files must pass validation before parsing begins.
+Uploaded files are untrusted input.
 
-Validation includes:
+Validation must include:
 
-- Approved file extension: `.log` or `.txt`.
-- Configurable maximum file size, initially 5 MB.
+- Approved extensions: `.log` and `.txt`.
+- Maximum file size: initially 5 MiB.
 - Empty-file rejection.
 - Safe text decoding.
-- Filename handling.
+- Filename sanitization.
 - Path traversal prevention.
 - Resource-limit checks.
 
-The supplied filename must never be trusted as a filesystem path.
+The application must not trust a filename, extension, or MIME type alone.
 
-The application must not trust a MIME type or extension alone to determine whether an input is safe.
-
-### Validation Flow
-
-```text
-Upload Request
-      │
-      ▼
-Extension Check
-      │
-      ▼
-File Size Check
-      │
-      ▼
-Empty File Check
-      │
-      ▼
-Safe Text Decoding
-      │
-      ▼
-Validation Successful?
-      │
-  ┌───┴────┐
-  │        │
- Yes       No
-  │        │
-  ▼        ▼
-Parser   Controlled
-         API Error
-```
-
-Invalid files must be rejected before they reach the detection engine.
-
-## 7. Temporary File Handling and Cleanup
-
-The MVP must not permanently store uploaded logs or analysis results.
-
-The preferred approach is to process uploaded content in memory when practical.
-
-If temporary disk storage is needed:
+Prefer in-memory processing when practical. If temporary disk storage is necessary:
 
 - Use a controlled temporary directory.
 - Generate safe temporary filenames.
-- Avoid trusting user-provided paths.
-- Remove temporary files after processing.
-- Attempt cleanup if parsing or analysis fails.
-- Avoid creating permanent copies or archives.
-- Do not write full log contents to application diagnostics.
+- Never use a supplied filename as a filesystem path.
+- Attempt cleanup on success and failure.
+- Avoid permanent copies and archives.
+- Avoid logging complete uploaded files.
 
-The analysis result should be held in memory only as needed to construct and return the API response.
+Uploaded logs and results must not be permanently stored by default. A database is not required for the MVP.
 
-No database is required.
+## 9. Log Parser
 
-Temporary-file cleanup must be designed into the request lifecycle rather than treated as an optional later enhancement.
+The parser converts raw log lines into structured records.
 
-## 8. Layer 4 — Log Parser
-
-The parser converts raw text lines into structured log records.
-
-Example input:
+Illustrative input:
 
 ```text
 2026-10-15 10:31:22 %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down
 ```
 
-Illustrative parsed record:
+Illustrative internal record:
 
 ```json
 {
@@ -299,142 +325,71 @@ Illustrative parsed record:
 }
 ```
 
-This is an illustrative internal parser record, not the final API response schema.
+This is an illustrative parser record, not the public API response schema.
 
-### Parser Responsibilities
+Responsibilities:
 
 - Process log lines safely.
-- Preserve original source line numbers.
-- Extract timestamps where possible.
-- Extract known vendor or system identifiers where possible.
-- Retain enough source information to support detections.
+- Preserve source line numbers.
+- Extract timestamps and known identifiers where possible.
+- Retain supporting source information.
 - Handle malformed timestamps and unexpected characters.
 - Continue after non-fatal parsing errors.
-- Record parsing limitations.
+- Record relevant parsing limitations.
 - Avoid executing or interpreting log content as code.
 
-Unknown lines should not automatically be treated as fatal errors.
+Unknown lines must not automatically cause the entire analysis to fail.
 
-The parser must follow the resource limits defined in the security requirements.
+## 10. Deterministic Detection Engine
 
-## 9. Layer 5 — Deterministic Detection Engine
+The detection engine applies documented rules to parsed records.
 
-The detection engine applies documented rules to parsed log records.
+Initial supported rules may cover interface state changes, BGP neighbor events, device errors, authentication failures, and other explicitly implemented conditions.
 
-```text
-Parsed Records
-      │
-      ▼
-Rule Matching
-      │
-      ▼
-Matched Rule
-      │
-      ▼
-Detection Evidence
-      │
-      ▼
-Structured Event
-```
+Actual support must be defined in `docs/DETECTION_RULES.md`. Mentioning a category in this document does not mean its detection rule is already implemented.
 
-Initial detection categories may include:
+Each rule must define:
 
-- Interface state changes.
-- BGP neighbor events.
-- Packet and interface errors.
-- CRC errors.
-- VLAN-related events.
-- ARP events.
-- MAC-related events.
-- Routing events.
-
-The implemented rules must be explicitly defined in `docs/DETECTION_RULES.md`.
-
-A category must not be represented as supported merely because it appears in this architecture document. Actual support depends on implemented and tested rules.
-
-## 10. Rule-Based Detection
-
-Every detection rule must have a stable identifier.
+- Stable rule ID.
+- Event type and description.
+- Match conditions.
+- Required fields.
+- Severity.
+- Evidence requirements.
+- Recommendation mapping.
+- Tests and known limitations.
 
 Illustrative identifiers:
 
 ```text
 IFACE_DOWN_001
 IFACE_UP_001
-IFACE_FLAP_001
 BGP_NEIGHBOR_DOWN_001
-CRC_ERROR_001
-ARP_FAILURE_001
+BGP_NEIGHBOR_UP_001
+DEVICE_ERROR_001
+AUTH_FAILURE_001
 ```
 
-Each rule should define:
+The rule engine is the source of truth for authoritative event detections and severity.
 
-- Rule ID.
-- Rule name.
-- Description.
-- Match conditions.
-- Required fields.
-- Severity.
-- Event description.
-- Evidence requirements.
-- Recommendation mapping.
+The RAG or LLM layer must not independently change these values.
 
-Example:
+## 11. Event Normalization
 
-```json
-{
-  "rule_id": "IFACE_DOWN_001",
-  "event_type": "interface_down",
-  "severity": "HIGH"
-}
-```
+The normalization layer converts supported detections into the canonical `NetworkEvent` model defined in `docs/DATA_MODELS.md`.
 
-The final severity must be assigned by the rule. An AI model must not independently change it.
-
-## 11. Layer 6 — Event Normalization
-
-Different network vendors and systems may represent similar conditions differently.
-
-For example:
-
-```text
-Interface Gi0/1 down
-
-Interface GigabitEthernet0/1 changed state to down
-
-Gi0/1 operational state = down
-```
-
-The normalization layer converts supported detections into a consistent event representation.
-
-Illustrative normalized fields:
-
-```json
-{
-  "event_type": "interface_down",
-  "resource_type": "interface",
-  "resource_id": "GigabitEthernet0/1",
-  "severity": "HIGH"
-}
-```
-
-These fields describe the concept of normalization. The actual implemented schema must follow `docs/DATA_MODELS.md`.
-
-Normalization must not invent missing resource identifiers or timestamps.
-
-## 12. Canonical Network Event Model
-
-The canonical event model is `NetworkEvent`, defined in `docs/DATA_MODELS.md`.
-
-It includes fields such as:
+The canonical model includes fields such as:
 
 - `event_id`
 - `rule_id`
+- `event_type`
 - `title`
 - `severity`
 - `timestamp`
 - `device`
 - `interface`
+- `resource_type`
+- `resource_id`
 - `description`
 - `evidence`
 - `possible_causes`
@@ -442,17 +397,13 @@ It includes fields such as:
 - `confidence`
 - `tags`
 
-The exact schema, required fields, optional fields, and controlled values are defined in `DATA_MODELS.md`.
+The actual required and optional fields must follow `DATA_MODELS.md`.
 
-The architecture document must not introduce conflicting field names or a separate incompatible event contract.
+Normalization must not invent missing timestamps, resource identifiers, or source evidence. Event IDs must be unique within an analysis.
 
-Each detected event must have supporting evidence. Event IDs must be unique within the current analysis.
+## 12. Correlation Engine
 
-## 13. Layer 7 — Correlation Engine
-
-The correlation engine identifies potential relationships among detected events.
-
-Potential correlation dimensions include:
+The correlation engine identifies potential relationships among detected events using available dimensions such as:
 
 - Time.
 - Device or resource.
@@ -466,113 +417,185 @@ Example:
 
 ```text
 10:31:22 Interface Gi0/1 DOWN
-
 10:31:24 BGP Neighbor 192.0.2.2 DOWN
 ```
 
-If the available evidence supports a relationship, the engine may produce a correlation.
+The engine may identify a potential relationship if supported by the available evidence.
 
-```text
-Potential relationship detected.
-Confidence: MEDIUM
-```
+A correlation must:
 
-The confidence value must follow the controlled values defined in `DATA_MODELS.md`.
+- Reference event IDs from the same analysis.
+- Include supporting evidence.
+- Use controlled confidence values.
+- Communicate uncertainty honestly.
 
-A correlation must reference existing event IDs from the same analysis and provide supporting evidence.
+Temporal proximity does not establish causality. The initial MVP must not mark a cause as confirmed solely because two events occurred close together.
 
-## 14. Correlation Safety
+## 13. Recommendation Engine
 
-The correlation engine must distinguish:
+The recommendation engine maps deterministic events to safe troubleshooting guidance.
 
-```text
-Event A happened before Event B
-```
-
-from:
-
-```text
-Event A caused Event B
-```
-
-The first may be established from timestamps.
-
-The second requires additional evidence.
-
-Therefore:
-
-```text
-Temporal relationship ≠ Confirmed root cause
-```
-
-The initial MVP should not mark a cause as confirmed merely because events occur close together.
-
-Correlation results must communicate uncertainty honestly.
-
-## 15. Layer 8 — Recommendation Engine
-
-The recommendation engine maps detected events to safe troubleshooting guidance.
-
-Example:
-
-```text
-Event:
-Interface CRC errors
-
-Possible recommendations:
-1. Review interface counters.
-2. Inspect the physical cable.
-3. Check the transceiver.
-4. Review the remote interface.
-```
+For example, an interface CRC error may lead to recommendations to review interface counters, inspect the physical cable, check the transceiver, or compare remote interface counters.
 
 Recommendations must be:
 
 - Relevant to the detected event.
-- Grounded in the available evidence.
+- Grounded in available evidence.
 - Human-verifiable.
 - Clear about uncertainty.
 - Advisory rather than automatically executed.
 
-The application must not execute commands, connect to production devices, or change network configurations.
-
 The final recommendation schema must match `Recommendation` in `DATA_MODELS.md`.
 
-## 16. Layer 9 — Analysis Result Construction
+RAG may retrieve supporting documentation for these recommendations, but retrieved text must not override the deterministic event or authorize a risky action.
 
-The analyzer service orchestrates the processing pipeline and constructs an `AnalysisResult`.
+## 14. RAG Knowledge Base
+
+The RAG knowledge base provides reference material for troubleshooting explanations.
+
+Potential sources include:
+
+- Public networking documentation.
+- Vendor-neutral networking references.
+- Authorized troubleshooting guides.
+- Relevant RFCs.
+- Authorized internal runbooks.
+
+Only appropriately licensed and authorized content may be included.
+
+### Knowledge ingestion pipeline
+
+```text
+Approved Documents
+       |
+       v
+Text Extraction
+       |
+       v
+Cleaning and Metadata
+       |
+       v
+Chunking
+       |
+       v
+Local Embeddings
+       |
+       v
+Local Vector Index
+```
+
+Each indexed passage should retain useful source metadata, such as document title, section, source location, and version where available.
+
+The initial implementation should prefer a small, controlled knowledge collection over a large, unverified document corpus.
+
+Knowledge-base ingestion and indexing should be separate from the log-analysis request path. The system should not rebuild the entire index for every uploaded log.
+
+The initial MVP does not require external hosted vector databases or paid embedding APIs.
+
+## 15. RAG Retrieval and Grounded Explanations
+
+The RAG service receives a question or a structured explanation request derived from the current analysis.
+
+It retrieves relevant knowledge passages and supplies them, together with selected event evidence, to the local LLM.
+
+The explanation should distinguish:
+
+- Observed facts from the uploaded logs.
+- Relevant knowledge from retrieved documents.
+- Possible causes or hypotheses.
+- Recommended verification steps.
+- Missing information and limitations.
+
+The generated explanation must be validated before display.
+
+The application should preserve source references for retrieved passages so a user can inspect the supporting material.
+
+The LLM must be instructed to treat log contents and retrieved documents as untrusted data rather than executable instructions.
+
+If retrieved evidence is insufficient, the system should say so rather than manufacture an answer.
+
+Retrieval relevance, answer grounding, citation correctness, and latency must be evaluated separately.
+
+## 16. Local AI and Configuration
+
+The project prioritizes a local, no-paid-API architecture.
+
+Candidate components may include:
+
+- Python for orchestration.
+- FastAPI for the application API.
+- A local embedding model.
+- FAISS or Chroma for vector retrieval.
+- Ollama with a compatible local LLM for explanation generation.
+
+These are candidate choices, not claims that the packages or models are already installed. The final selection must be confirmed in `docs/TECH_STACK.md` before implementation.
+
+A local model and its dependencies may require an initial download and adequate RAM, storage, and CPU/GPU resources. Offline operation can only be expected after the required components and knowledge base are available locally.
+
+Suggested configuration concepts:
+
+```text
+AI_ENABLED=false
+AI_PROVIDER=local
+MODEL_NAME=<configured-local-model>
+MAX_UPLOAD_SIZE=<configured-limit>
+LOG_LEVEL=<configured-level>
+TEMP_DIRECTORY=<configured-directory>
+```
+
+The exact variable names and defaults must be defined consistently in the configuration and technical-stack documents.
+
+AI should be disabled by default during initial rule-based development. Enabling AI must not be required for health checks or basic deterministic analysis.
+
+Secrets and machine-specific configuration must not be committed to Git.
+
+## 17. Shared Analysis Result
+
+Both paths must preserve a consistent core analysis contract.
 
 Conceptually:
 
 ```text
 Uploaded Content
-       │
-       ▼
+       |
+       v
 Validation
-       │
-       ▼
+       |
+       v
 Parsing
-       │
-       ▼
-Detection
-       │
-       ▼
-Event Normalization
-       │
-       ▼
-Correlation
-       │
-       ▼
-Recommendations
-       │
-       ▼
-Summary and Warnings
-       │
-       ▼
+       |
+       v
+Deterministic Detection
+       |
+       v
+Normalized Events
+       |
+       v
++---------------------------+
+| Rule-Based Path           |
+| Correlation and Guidance  |
++---------------------------+
+       |
+       +-------------------------------+
+                                       |
++--------------------------------------+
+| Optional RAG Path                    |
+| Retrieval and Local LLM Explanation  |
++--------------------------------------+
+       |
+       v
+Result Assembly and Validation
+       |
+       v
 AnalysisResult
+       |
+       v
+JSON Response
 ```
 
-The result includes:
+The canonical result model is defined in `docs/DATA_MODELS.md`.
+
+It includes the existing core fields:
 
 - `analysis_id`
 - `status`
@@ -584,293 +607,205 @@ The result includes:
 - `warnings`
 - `metadata`
 
-These names must match `docs/DATA_MODELS.md`.
+Any additional AI explanation, source citation, or AI-processing status fields must be added through an explicit update to the canonical data model and API specification before implementation. The architecture must not silently introduce a conflicting response schema.
 
-The analysis ID identifies the current result. It does not imply persistent storage or later retrieval.
+The result is returned directly to the client. An analysis ID does not imply persistent storage or later retrieval.
 
-A valid analysis with no detected events should return a valid result with an empty event list and an appropriate warning where useful.
+Summary counts must match the returned events, including the INFO severity count defined in the canonical data model.
 
-Summary counts must match the returned events.
+## 18. API and Frontend Integration
 
-## 17. API Response and Frontend Rendering
+The browser submits an upload to `POST /api/v1/analyze`.
 
-The API returns the complete `AnalysisResult` directly from:
+The backend performs deterministic analysis first. If the optional RAG path is enabled and available, it attempts to generate a grounded explanation without changing the deterministic detections.
 
-```text
-POST /api/v1/analyze
-```
-
-The frontend uses this response to render the analysis summary, events, evidence, correlations, recommendations, warnings, and processing metadata.
-
-```text
-Browser
-   │
-   ▼
-POST /api/v1/analyze
-   │
-   ▼
-FastAPI
-   │
-   ▼
-Analysis Service
-   │
-   ▼
-AnalysisResult
-   │
-   ▼
-JSON Response
-   │
-   ▼
-Browser Dashboard
-```
-
-The initial MVP does not require:
-
-- A database.
-- A permanent result repository.
-- Analysis history.
-- Retrieval of previous analysis results.
-- Separate saved-report export endpoints.
-
-The browser may temporarily hold the current response to render the page. The backend must not promise that the result remains available after the request finishes.
-
-## 18. Optional AI Layer — Future Phase
-
-AI explanations are deferred until the deterministic MVP is implemented and tested.
-
-A future AI layer may explain structured events, summarize incidents, or answer questions about the evidence.
-
-Possible future responsibilities:
-
-- Explain detected events in plain language.
-- Summarize a set of related events.
-- Explain networking concepts.
-- Answer questions about the current analysis.
-- Produce human-readable explanations.
-
-AI must remain separate from deterministic detection.
-
-```text
-Deterministic Analysis
-          │
-          ▼
-Validated Structured Events
-          │
-          ▼
-Optional AI Explanation
-          │
-          ▼
-Validated Explanation
-```
-
-AI must not:
-
-- Create authoritative detections without matching rules.
-- Change event severity.
-- Change rule IDs or source evidence.
-- Execute commands.
-- Modify network devices.
-- Present an unverified root cause as established fact.
-
-The initial MVP must work with AI disabled.
-
-## 19. AI Input and Output Boundaries
-
-If AI is added later, its input should use relevant structured events and sanitized evidence rather than unrestricted raw logs whenever practical.
-
-Before sending context to a model, the application must:
-
-- Limit the evidence provided.
-- Redact recognized secrets where practical.
-- Treat all log-derived content as untrusted data.
-- Avoid sending data to external services unless a separate, explicit design decision permits it.
-
-AI output must be validated before display.
-
-References to nonexistent events must be rejected or flagged. AI-generated explanations must remain distinguishable from deterministic observations.
-
-The initial MVP does not require an LLM, embedding model, vector database, or RAG pipeline.
-
-## 20. RAG Architecture — Future Scope
-
-A future RAG layer may retrieve relevant networking knowledge to support explanations.
-
-Potential approved sources include:
-
-- Public networking documentation.
-- Troubleshooting guides.
-- Vendor-neutral networking references.
-- RFCs.
-- Authorized internal runbooks.
-
-Future flow:
-
-```text
-User Question
-      │
-      ▼
-Query Processing
-      │
-      ▼
-Knowledge Retrieval
-      │
-      ▼
-Relevant Context
-      │
-      ▼
-Optional LLM
-      │
-      ▼
-Validated Explanation
-```
-
-Only approved and appropriately licensed content should be used.
-
-RAG must not be required for deterministic log analysis.
-
-## 21. Reporting
-
-The initial MVP returns a structured JSON analysis result and renders it in the browser dashboard.
-
-The result should contain:
+The frontend displays:
 
 - Analysis summary.
-- Detected events.
-- Severity.
-- Evidence.
+- Detected events and severity.
+- Evidence and source line numbers.
 - Potential correlations.
 - Recommendations.
 - Warnings and limitations.
-- Processing metadata.
+- Optional AI explanations and their source references.
+- Processing metadata and AI status where defined by the response contract.
 
-The initial MVP does not require PDF generation, permanent reports, or separate export endpoints.
+The frontend must distinguish deterministic observations from generated explanations.
 
-Future Markdown, PDF, or other export functionality may be considered separately.
+A failed optional AI request must not erase valid rule-based results.
 
-All report content must follow the data models and security requirements.
-
-## 22. End-to-End Data Flow
-
-```text
-User
- │
- ▼
-Upload Log
- │
- ▼
-File Validation
- │
- ▼
-Temporary Input Handling
- │
- ▼
-Log Parser
- │
- ▼
-Parsed Records
- │
- ▼
-Detection Engine
- │
- ▼
-Normalized Events
- │
- ▼
-Correlation Engine
- │
- ▼
-Recommendation Engine
- │
- ▼
-Analysis Summary and Warnings
- │
- ▼
-AnalysisResult
- │
- ▼
-JSON API Response
- │
- ▼
-Browser Dashboard
- │
- ▼
-Temporary Data Cleanup
-```
-
-Cleanup must be attempted on both successful and unsuccessful processing paths.
-
-The result is returned directly to the client; it is not written to a permanent database.
-
-## 23. Error Handling
+## 19. Error Handling
 
 Errors must be handled at the appropriate layer.
 
-### Invalid Upload
+### Invalid upload
 
 ```text
-Invalid File
-     │
-     ▼
+Upload
+  |
+  v
 Validation Failure
-     │
-     ▼
+  |
+  v
 Controlled API Error
 ```
 
-### Non-Fatal Parsing Problem
+### Non-fatal parsing problem
 
 ```text
 Malformed Line
-     │
-     ▼
-Record Parsing Limitation
-     │
-     ▼
+  |
+  v
+Record Limitation
+  |
+  v
 Continue Where Safe
-     │
-     ▼
-Include Warning
+  |
+  v
+Analysis Warning
 ```
 
-### Unexpected Internal Error
+### RAG or LLM failure
+
+```text
+Optional AI Failure
+       |
+       v
+Preserve Deterministic Results
+       |
+       v
+Return Controlled Warning
+```
+
+### Unexpected internal error
 
 ```text
 Internal Error
-     │
-     ▼
-Attempt Temporary Cleanup
-     │
-     ▼
+     |
+     v
+Attempt Cleanup
+     |
+     v
 Controlled API Error
 ```
 
-Unexpected errors must not expose raw stack traces, secrets, or full filesystem paths to the browser.
+Errors must not expose raw stack traces, secrets, or unnecessary filesystem details to the browser. Error responses must follow `API_SPECIFICATION.md`.
 
-Error responses must follow `docs/API_SPECIFICATION.md`.
+## 20. Privacy and Security Boundaries
 
-## 24. Project Structure
+Uploaded files are untrusted.
 
-The proposed MVP project structure is:
+The MVP must:
+
+- Enforce upload limits and validation.
+- Avoid permanent storage by default.
+- Prefer in-memory processing where practical.
+- Attempt temporary-file cleanup on success and failure.
+- Avoid logging full uploaded files.
+- Render uploaded text safely.
+- Treat log-derived text as untrusted evidence.
+- Keep credentials and secrets out of source control.
+
+The local-first design means that network logs should not be sent to external AI services by default.
+
+Any future external AI integration would require a separate, explicit design decision, appropriate user awareness, and updated privacy documentation.
+
+No uploaded content may be treated as executable code or trusted instructions.
+
+## 21. No Production Device Access in the MVP
+
+The application analyzes uploaded logs only.
+
+It does not include:
+
+- Production router or switch access.
+- SSH connections to devices.
+- Automatic command execution.
+- Network configuration changes.
+- Automatic remediation.
+
+Any future read-only device integration must be separately designed with explicit authorization, read-only permissions, credential protection, connection timeouts, audit requirements, and security testing.
+
+It must not be added implicitly through the RAG or recommendation engine.
+
+## 22. Observability
+
+The MVP should provide minimal operational diagnostics:
+
+- Request outcome.
+- Analysis identifier.
+- Processing duration.
+- Parser warnings.
+- API error category.
+- Optional AI processing outcome where available.
+
+Diagnostics must not log complete uploaded files, credentials, or unnecessary sensitive network information.
+
+Future metrics may measure retrieval latency, retrieval relevance, LLM generation latency, and explanation-validation failures without retaining sensitive log contents.
+
+## 23. Testing Architecture
+
+Each major component must be independently testable.
+
+```text
+Parser Tests
+     |
+     v
+Detection Tests
+     |
+     v
+Normalization Tests
+     |
+     v
+Correlation Tests
+     |
+     v
+Recommendation Tests
+     |
+     v
+Data Model Tests
+     |
+     v
+API Tests
+     |
+     v
+RAG Retrieval Tests
+     |
+     v
+AI Grounding and Citation Tests
+     |
+     v
+End-to-End Tests
+```
+
+Testing must verify:
+
+- Correct parsing and source line numbers.
+- Deterministic rule matching.
+- Correct severity and schema consistency.
+- Correlations referencing valid event IDs.
+- Accurate summary counts.
+- Safe recommendations.
+- Controlled API errors.
+- Upload limits and temporary-file cleanup.
+- Correct response serialization.
+- Successful operation with AI disabled.
+- RAG retrieval of relevant passages.
+- Source references matching retrieved content.
+- Clear handling of insufficient evidence.
+- No AI override of deterministic events or severity.
+- Fallback to rule-based results after optional AI failures.
+- No permanent log storage by default.
+
+Core tests must not require a downloaded LLM or internet access. RAG and local-model integration tests should be separable from the rule-based test suite.
+
+## 24. Proposed Project Structure
+
+The following is the proposed structure, not a claim that these files already exist.
 
 ```text
 netassist-ai/
-│
 ├── docs/
-│   ├── PROJECT_MASTER_PLAN.md
-│   ├── PRD.md
-│   ├── ARCHITECTURE.md
-│   ├── TECH_STACK.md
-│   ├── DETECTION_RULES.md
-│   ├── AI_DESIGN.md
-│   ├── SECURITY_AND_PRIVACY.md
-│   ├── API_SPECIFICATION.md
-│   ├── DATA_MODELS.md
-│   ├── TESTING_STRATEGY.md
-│   ├── IMPLEMENTATION_PLAN.md
-│   ├── PROJECT_STATUS.md
-│   ├── DEVELOPMENT_WORKFLOW.md
-│   └── REQUIREMENTS_TRACEABILITY.md
-│
 ├── backend/
 │   ├── app/
 │   │   ├── main.py
@@ -884,364 +819,126 @@ netassist-ai/
 │   │   │   ├── parser.py
 │   │   │   ├── detector.py
 │   │   │   ├── correlator.py
-│   │   │   └── recommender.py
+│   │   │   ├── recommender.py
+│   │   │   └── result_builder.py
 │   │   └── rules/
 │   └── tests/
-│
+├── rag/
+│   ├── ingestion/
+│   ├── retrieval/
+│   ├── generation/
+│   └── evaluation/
+├── knowledge_base/
+│   └── README.md
 ├── frontend/
 │   ├── index.html
 │   ├── css/
 │   └── js/
-│
 ├── sample_logs/
-│
 ├── tests/
-│
 ├── README.md
 ├── pyproject.toml
 └── .gitignore
 ```
 
-This is a proposed layout, not a requirement to create every file immediately.
+The structure may be simplified during implementation without changing the architectural responsibilities.
 
-Optional AI modules, device integrations, database modules, and report export modules should be added only when their respective future phases are approved.
-
-The exact file layout can be simplified during implementation without changing the architectural responsibilities.
+Knowledge-base documents and generated vector indexes must be handled according to licensing, privacy, size, and Git tracking rules. Private or sensitive documents must not be committed publicly.
 
 ## 25. Dependency Direction
 
-The architecture must maintain clear dependency direction.
+The intended dependency direction is:
 
 ```text
 API Layer
-    │
-    ▼
+    |
+    v
 Analyzer Service
-    │
-    ├── Parser
-    ├── Detection Engine
-    ├── Correlation Engine
-    ├── Recommendation Engine
-    └── Result Construction
-             │
-             ▼
+    |
+    +---- Parser
+    |
+    +---- Detection Engine
+    |
+    +---- Correlation Engine
+    |
+    +---- Recommendation Engine
+    |
+    +---- Optional RAG Service
+    |
+    +---- Result Builder
+              |
+              v
           Data Models
 ```
 
-The parser must not depend on FastAPI.
+The parser must not depend on FastAPI. The detection engine must not depend on the frontend, RAG service, or LLM. The RAG service may consume structured analysis evidence but must not mutate authoritative detections.
 
-The detection engine must not depend on the browser UI.
+The analyzer service orchestrates components, and shared data models define consistent contracts.
 
-Rules must not depend on frontend code.
+## 26. Implementation Order
 
-The analyzer service orchestrates components, while shared models define consistent data contracts.
+Development will proceed in controlled phases:
 
-This structure enables unit testing without starting the web application.
+1. Align the documentation and canonical data contracts.
+2. Establish the Python environment and project structure.
+3. Implement canonical Pydantic data models.
+4. Implement upload validation.
+5. Implement the log parser.
+6. Implement deterministic detection rules.
+7. Implement normalization, correlation, and recommendations.
+8. Implement result assembly and summary validation.
+9. Expose the analyzer through FastAPI.
+10. Build the browser dashboard.
+11. Implement knowledge ingestion and local vector retrieval.
+12. Add optional local LLM explanations and output validation.
+13. Integrate both paths with safe fallback behavior.
+14. Test, document, and prepare the GitHub portfolio.
 
-## 26. Analyzer Service
+RAG implementation must not delay testing or break the deterministic baseline.
 
-The analyzer service is the main orchestrator for one analysis request.
+## 27. Final Architecture Definition
 
-Conceptually:
+NetAssist AI is a modular, local-first network log troubleshooting application with a deterministic analysis core and an optional local RAG explanation layer.
 
-```text
-analyze(upload)
-       │
-       ├── Validate input
-       ├── Parse records
-       ├── Detect events
-       ├── Normalize events
-       ├── Correlate events
-       ├── Generate recommendations
-       ├── Build summary and warnings
-       ├── Build AnalysisResult
-       └── Return result
-```
-
-The service must not require a database or AI model.
-
-Temporary file cleanup must be coordinated with the request lifecycle. Where feasible, in-memory processing should be preferred.
-
-## 27. Analysis Result Contract
-
-The final result schema is defined in `docs/DATA_MODELS.md`.
-
-Illustrative response structure:
-
-```json
-{
-  "analysis_id": "analysis-example-001",
-  "status": "COMPLETED",
-  "filename": "router.log",
-  "created_at": "2026-10-15T10:31:22Z",
-  "summary": {
-    "total_lines": 500,
-    "parsed_lines": 480,
-    "unparsed_lines": 20,
-    "total_events": 8,
-    "critical_events": 0,
-    "high_events": 2,
-    "medium_events": 4,
-    "low_events": 2
-  },
-  "events": [],
-  "correlations": [],
-  "warnings": [],
-  "metadata": {
-    "parser_version": "1.0.0",
-    "ruleset_version": "1.0.0",
-    "processing_duration_ms": 120,
-    "ai_used": false,
-    "input_size_bytes": 1024
-  }
-}
-```
-
-This is a schema illustration, not a claim that these counts or timings have been measured.
-
-The final serialized field names and value constraints must match `DATA_MODELS.md`.
-
-The result is returned directly from the analysis endpoint. It is not persisted by default.
-
-## 28. No Production Device Access in the MVP
-
-The initial architecture stops at uploaded-log analysis.
-
-```text
-Uploaded Log
-     │
-     ▼
-NetAssist AI
-     │
-     ▼
-Analysis Result
-```
-
-It does not include:
-
-```text
-NetAssist AI
-     │
-     ▼
-SSH / Network Device API
-     │
-     ▼
-Production Router
-```
-
-It also does not include automatic network configuration changes.
-
-This boundary reduces operational risk and keeps the MVP suitable for safe testing with synthetic or authorized logs.
-
-## 29. Future Read-Only Device Integration
-
-Device integration is future scope and must be designed as a separate component.
-
-Any future integration must define:
-
-- Authentication.
-- Authorization.
-- Explicit read-only permissions.
-- Credential protection.
-- Connection timeouts.
-- Audit requirements.
-- Failure handling.
-- Security testing.
-
-It must not be added implicitly through the recommendation engine or optional AI layer.
-
-## 30. Observability
-
-The MVP should provide minimal operational diagnostics, such as:
-
-- Request outcome.
-- Analysis identifier.
-- Processing duration.
-- Parser warnings.
-- API error category.
-
-Observability must not log full uploaded files, credentials, or unnecessary sensitive network information.
-
-Future production-oriented versions may introduce additional metrics, subject to privacy requirements.
-
-## 31. Configuration
-
-Configuration should be externalized where appropriate.
-
-Examples:
-
-```text
-MAX_UPLOAD_SIZE
-LOG_LEVEL
-TEMP_DIRECTORY
-```
-
-Configuration values must have safe defaults and be validated at application startup.
-
-Future AI configuration may include:
-
-```text
-AI_ENABLED
-AI_PROVIDER
-MODEL_NAME
-```
-
-These settings must not make AI a requirement for the MVP.
-
-Sensitive configuration values must not be committed to source control or exposed through API responses.
-
-## 32. Testing Architecture
-
-Each major layer must be independently testable.
-
-```text
-Parser Unit Tests
-        │
-        ▼
-Detection Unit Tests
-        │
-        ▼
-Correlation Unit Tests
-        │
-        ▼
-Recommendation Unit Tests
-        │
-        ▼
-Data Model Tests
-        │
-        ▼
-API Tests
-        │
-        ▼
-End-to-End Tests
-```
-
-Testing must verify:
-
-- Correct parsing and evidence line numbers.
-- Deterministic rule matching.
-- Severity and event schema consistency.
-- Correlations referencing valid event IDs.
-- Accurate summary counts.
-- Safe recommendations.
-- Controlled API errors.
-- Upload limits and temporary-file cleanup.
-- Correct response serialization.
-- Successful operation without AI or a database.
-
-## 33. Security Boundary
-
-Uploaded files are untrusted.
-
-```text
-UNTRUSTED INPUT
-       │
-       ▼
-Uploaded File
-       │
-       ▼
-Validation
-       │
-       ▼
-Safe Parsing
-       │
-       ▼
-Structured Records
-       │
-       ▼
-Deterministic Analysis
-       │
-       ▼
-Validated Result
-```
-
-No uploaded content may be treated as executable instructions.
-
-The frontend must safely render log-derived text, and any future AI integration must treat log content as untrusted evidence.
-
-## 34. Architecture Principles
-
-### Principle 1 — Evidence First
-
-Every important detection must be traceable to source evidence.
-
-### Principle 2 — Deterministic Core
-
-Core event detection must not depend on AI availability.
-
-### Principle 3 — AI as an Enhancement
-
-AI may explain results in a future phase but cannot replace the detection engine.
-
-### Principle 4 — Safe by Default
-
-No automatic network changes or command execution.
-
-### Principle 5 — Modular Design
-
-Every major component has a clearly defined responsibility.
-
-### Principle 6 — Testability
-
-Core components can be tested independently.
-
-### Principle 7 — Privacy
-
-Uploaded network data must not leave the local environment by default.
-
-### Principle 8 — Honest Uncertainty
-
-The application must distinguish observed facts, potential relationships, and hypotheses.
-
-### Principle 9 — Stateless MVP
-
-The initial application returns results directly without requiring permanent storage or analysis history.
-
-### Principle 10 — Consistent Contracts
-
-The API, data models, and frontend must use the same field names and response structures.
-
-## 35. Final Architecture Definition
-
-NetAssist AI is a modular, local-first, evidence-driven network log analysis application.
-
-Its initial processing pipeline is:
+Its shared pipeline is:
 
 ```text
 RAW NETWORK LOG
-       │
-       ▼
+       |
+       v
 FILE VALIDATION
-       │
-       ▼
+       |
+       v
 LOG PARSER
-       │
-       ▼
+       |
+       v
 DETERMINISTIC DETECTION
-       │
-       ▼
+       |
+       v
 NORMALIZED EVENTS
-       │
-       ▼
-CORRELATION ENGINE
-       │
-       ▼
-RECOMMENDATION ENGINE
-       │
-       ▼
-ANALYSIS RESULT
-       │
-       ▼
-FASTAPI JSON RESPONSE
-       │
-       ▼
-WEB DASHBOARD
+       |
+       +-----------------------------+
+       |                             |
+       v                             v
+RULE-BASED ANALYSIS            OPTIONAL RAG
+       |                       KNOWLEDGE RETRIEVAL
+       |                             |
+       |                       LOCAL LLM EXPLANATION
+       |                             |
+       +--------------+--------------+
+                      |
+                      v
+             VALIDATED RESULT
+                      |
+                      v
+              FASTAPI JSON API
+                      |
+                      v
+               WEB DASHBOARD
 ```
 
-The MVP uses Python, FastAPI, HTML, CSS, JavaScript, deterministic rules, and validated data models.
+The project prioritizes Python, FastAPI, deterministic rules, validated data models, local knowledge retrieval, and optional local LLM explanations.
 
-It does not require AI, a database, paid external services, or production device access.
+It does not require paid external AI APIs, a database, permanent log storage, or production device access.
 
-The architecture leaves room for future AI explanations, RAG, persistent analysis history, report exports, and read-only device integrations without making those features dependencies of the initial system.
-
-**Final principle:** Build a small, testable, stateless, evidence-based analyzer first. Extend it only after the core pipeline is reliable and its security and privacy requirements are verified.
+**Final principle:** Build a reliable evidence-based analyzer first, add RAG as a separately testable enhancement, and ensure that the system remains useful and safe when AI is unavailable.
